@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
     <types>
-        <members>SBluePrint</members>
-        <members>SBluePrintTest</members>
-        <members>SBluePrintAnalyzer</members>
-        <members>SBluePrintRealizer</members>
+        <members>SBlueprint</members>
+        <members>SBlueprintTest</members>
+        <members>SBlueprintAnalyzer</members>
+        <members>SBlueprintRealizer</members>
         <members>SOrchestrator</members>
         <members>SOrchestratorTest</members>
         <members>IDmlOperator</members>

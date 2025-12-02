@@ -19,12 +19,12 @@
  * This class is responsible for the recursive creation of records based on parent-child relationships
  * defined in SBlueprints, resolving aliases and dependencies along the way.
  */
-public with sharing class SBluePrintRealizer {
+public with sharing class SBlueprintRealizer {
   // =================================================================================
   // Properties
   // =================================================================================
 
-  private SBluePrint sBluePrint;
+  private SBlueprint sBluePrint;
   private Map<String, SObject> aliasToSObject;
   private Map<String, String> parentPositionToAlias;
   private Integer parentPosition;
@@ -41,7 +41,7 @@ public with sharing class SBluePrintRealizer {
    * @param parentPositionToAlias A map of parent placeholders (e.g., 'P0') to their resolved aliases.
    * @param parentPosition The current depth in the parent-child hierarchy.
    */
-  public SBluePrintRealizer(
+  public SBlueprintRealizer(
     SBlueprint sBluePrint,
     Map<String, SObject> aliasToSObject,
     Map<String, String> parentPositionToAlias,

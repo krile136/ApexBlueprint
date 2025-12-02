@@ -6,7 +6,7 @@ public with sharing class SOrchestratorTest {
     SOrchestrator orchestrator = SOrchestrator.start();
 
     // Arrange
-    SOrchestrator newSOrchestrator = orchestrator.add(SBluePrint.of(Account.class));
+    SOrchestrator newSOrchestrator = orchestrator.add(SBlueprint.of(Account.class));
 
     // Assert
     Assert.areEqual(0, orchestrator.sBluePrints.size());
@@ -14,10 +14,10 @@ public with sharing class SOrchestratorTest {
   }
 
   @isTest
-  static void testCreate_WhenAddSingleSBluePrint_ThenInsertOneRecord() {
+  static void testCreate_WhenAddSingleSBlueprint_ThenInsertOneRecord() {
     // Arrange
     SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
-      .add(SBluePrint.of(Account.class).set('Name', 'Test Account'));
+      .add(SBlueprint.of(Account.class).set('Name', 'Test Account'));
 
     // Act
     orchestrator.create();
@@ -28,10 +28,10 @@ public with sharing class SOrchestratorTest {
   }
 
   @isTest
-  static void testCreate_WHenAddSingleSBluePrintWithAlias_ThenCanAccessByAlias() {
+  static void testCreate_WHenAddSingleSBlueprintWithAlias_ThenCanAccessByAlias() {
     // Arrange
     SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
-      .add(SBluePrint.of(Account.class).set('Name', 'Test Account').alias('acc'));
+      .add(SBlueprint.of(Account.class).set('Name', 'Test Account').alias('acc'));
 
     // Act
     orchestrator.create();
@@ -46,9 +46,9 @@ public with sharing class SOrchestratorTest {
     // Arrange
     SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
       .add(
-        SBluePrint.of(Account.class)
+        SBlueprint.of(Account.class)
           .set('Name', 'Test Account')
-          .withChildren(SBluePrint.of(Contact.class).set('LastName', 'Test Contact'))
+          .withChildren(SBlueprint.of(Contact.class).set('LastName', 'Test Contact'))
       );
 
     // Act
@@ -67,10 +67,10 @@ public with sharing class SOrchestratorTest {
     // Arrange
     SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
       .add(
-        SBluePrint.of(Account.class)
+        SBlueprint.of(Account.class)
           .set('Name', 'Test Account')
           .alias('acc')
-          .withChildren(SBluePrint.of(Contact.class).set('LastName', 'Test Contact').alias('con'))
+          .withChildren(SBlueprint.of(Contact.class).set('LastName', 'Test Contact').alias('con'))
       );
 
     // Act
@@ -89,10 +89,10 @@ public with sharing class SOrchestratorTest {
     // Arrange
     SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
       .add(
-        SBluePrint.of(Account.class)
+        SBlueprint.of(Account.class)
           .set('Name', 'Test Account')
           .alias('acc')
-          .withChildren(SBluePrint.of(Contact.class).use('acc', 'Name', 'LastName').alias('con'))
+          .withChildren(SBlueprint.of(Contact.class).use('acc', 'Name', 'LastName').alias('con'))
       );
 
     // Act
@@ -111,9 +111,9 @@ public with sharing class SOrchestratorTest {
     // Arrange
     SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
       .add(
-        SBluePrint.of(Account.class)
+        SBlueprint.of(Account.class)
           .set('Name', 'Test Account')
-          .withChildren(SBluePrint.of(Contact.class).use('{P0}', 'Name', 'LastName').alias('con'))
+          .withChildren(SBlueprint.of(Contact.class).use('{P0}', 'Name', 'LastName').alias('con'))
       );
 
     // Act
@@ -132,10 +132,10 @@ public with sharing class SOrchestratorTest {
     // Arrange
     SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
       .add(
-        SBluePrint.of(Account.class)
+        SBlueprint.of(Account.class)
           .set('Name', 'Test Account')
           .withChildren(
-            SBluePrint.of(Contact.class).use('{P0}', 'Name', 'LastName').alias('{P0}_con_{#}').times(2)
+            SBlueprint.of(Contact.class).use('{P0}', 'Name', 'LastName').alias('{P0}_con_{#}').times(2)
           )
       );
 
@@ -158,16 +158,16 @@ public with sharing class SOrchestratorTest {
     // Arrange
     SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
       .add(
-        SBluePrint.of(Account.class)
+        SBlueprint.of(Account.class)
           .set('Name', 'Test Account 1')
           .alias('acc1')
-          .withChildren(SBluePrint.of(Contact.class).set('LastName', 'Test Contact 1').alias('con1'))
+          .withChildren(SBlueprint.of(Contact.class).set('LastName', 'Test Contact 1').alias('con1'))
       )
       .add(
-        SBluePrint.of(Account.class)
+        SBlueprint.of(Account.class)
           .set('Name', 'Test Account 2')
           .alias('acc2')
-          .withChildren(SBluePrint.of(Contact.class).set('LastName', 'Test Contact 2').alias('con2'))
+          .withChildren(SBlueprint.of(Contact.class).set('LastName', 'Test Contact 2').alias('con2'))
       );
 
     // Act
@@ -191,12 +191,12 @@ public with sharing class SOrchestratorTest {
   static void testCreate_WhenAddMulitipleParentWithChildren_ThenCreateChildrenToEachParent() {
     SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
       .add(
-        SBluePrint.of(Account.class)
+        SBlueprint.of(Account.class)
           .set('Name', 'Test Account {#}', 1, 1)
           .alias('acc_{#}')
           .times(2)
           .withChildren(
-            SBluePrint.of(Contact.class).set('LastName', 'Test Contact {#}', 1, 1).alias('{P0}_con_{#}').times(2)
+            SBlueprint.of(Contact.class).set('LastName', 'Test Contact {#}', 1, 1).alias('{P0}_con_{#}').times(2)
           )
       );
 
@@ -219,10 +219,10 @@ public with sharing class SOrchestratorTest {
   static void testCreate_WhenAddMultipleParentWithChildrenWithoutAlias_ThenCreateChildrenToEachParent() {
     SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
       .add(
-        SBluePrint.of(Account.class)
+        SBlueprint.of(Account.class)
           .set('Name', 'Test Account {#}', 1)
           .times(2)
-          .withChildren(SBluePrint.of(Contact.class).set('LastName', 'Test Contact {#}', 1).times(2))
+          .withChildren(SBlueprint.of(Contact.class).set('LastName', 'Test Contact {#}', 1).times(2))
       );
 
     // Act
@@ -252,18 +252,18 @@ public with sharing class SOrchestratorTest {
     Date today = Date.today();
     SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
       .add(
-        SBluePrint.of(Account.class)
+        SBlueprint.of(Account.class)
           .set('Name', 'Test Account {#}', 1, 1)
           .times(2)
           .withChildren(
-            SBluePrint.of(Opportunity.class)
+            SBlueprint.of(Opportunity.class)
               .parentIdField('AccountId')
               .set('Name', 'Test Opportunity {#}', 1, 1)
               .set('StageName', 'Prospecting')
               .set('CloseDate', today)
               .times(2)
               .withChildren(
-                SBluePrint.of(Quote.class)
+                SBlueprint.of(Quote.class)
                   .parentIdField('OpportunityId')
                   .set('Name', 'Test Quote {#}', 1, 1)
                   .times(2)
@@ -308,11 +308,11 @@ public with sharing class SOrchestratorTest {
     Date today = Date.today();
     SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
       .add(
-        SBluePrint.of(Account.class)
+        SBlueprint.of(Account.class)
           .set('Name', 'Test Account {#}', 1, 1)
           .times(2)
           .withChildren(
-            SBluePrint.of(Opportunity.class)
+            SBlueprint.of(Opportunity.class)
               .parentIdField('AccountId')
               .set('Name', 'Test Opportunity {#}', 1, 1)
               .set('StageName', 'Prospecting')
@@ -320,7 +320,7 @@ public with sharing class SOrchestratorTest {
               .alias('{P0}_opp_{#}')
               .times(2)
               .withChildren(
-                SBluePrint.of(Quote.class)
+                SBlueprint.of(Quote.class)
                   .parentIdField('OpportunityId')
                   .set('Name', 'Test Quote {#}', 1, 1)
                   .times(2)
@@ -363,23 +363,23 @@ public with sharing class SOrchestratorTest {
     Date today = Date.today();
     SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
       .add(
-        SBluePrint.of(Account.class)
+        SBlueprint.of(Account.class)
           .set('Name', 'Test Account {#}', 1, 1)
           .times(2)
           .withChildren(
-            SBluePrint.of(Opportunity.class)
+            SBlueprint.of(Opportunity.class)
               .parentIdField('AccountId')
               .set('Name', 'Test Opportunity {#}', 1, 1)
               .set('StageName', 'Prospecting')
               .set('CloseDate', today)
               .times(2)
               .withChildren(
-                SBluePrint.of(Quote.class)
+                SBlueprint.of(Quote.class)
                   .parentIdField('OpportunityId')
                   .set('Name', 'Test Quote {#}', 1, 1)
                   .times(2)
                   .withChildren(
-                    SBluePrint.of(QuoteLineItem.class)
+                    SBlueprint.of(QuoteLineItem.class)
                       .parentIdField('QuoteId')
                       .use('prod_{#}', 'Id', 'PricebookEntryId')
                       .set('Quantity', 1)
@@ -389,7 +389,7 @@ public with sharing class SOrchestratorTest {
               )
           )
       )
-      .add(SBluePrint.of(Product2.class).set('Name', 'Test Product {#}', 1, 1).times(2).alias('prod_{#}'));
+      .add(SBlueprint.of(Product2.class).set('Name', 'Test Product {#}', 1, 1).times(2).alias('prod_{#}'));
 
     // Act
     orchestrator.create();
@@ -428,22 +428,22 @@ public with sharing class SOrchestratorTest {
     Date today = Date.today();
     SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
       .add(
-        SBluePrint.of(Account.class)
+        SBlueprint.of(Account.class)
           .set('Name', 'Test Account')
           .withChildren(
-            SBluePrint.of(Opportunity.class)
+            SBlueprint.of(Opportunity.class)
               .parentIdField('AccountId')
               .set('Name', 'Test Opportunity {#}', 1, 1)
               .set('StageName', 'Prospecting')
               .set('CloseDate', today)
               .times(2)
               .withChildren(
-                SBluePrint.of(Quote.class)
+                SBlueprint.of(Quote.class)
                   .parentIdField('OpportunityId')
                   .set('Name', 'Test Quote {#}', 1, 1)
                   .times(2)
                   .withChildren(
-                    SBluePrint.of(QuoteLineItem.class)
+                    SBlueprint.of(QuoteLineItem.class)
                       .parentIdField('QuoteId')
                       .use('prod_{#}', 'Id', 'PricebookEntryId')
                       .use('{P0}', 'Name', 'Description')
@@ -454,7 +454,7 @@ public with sharing class SOrchestratorTest {
               )
           )
       )
-      .add(SBluePrint.of(Product2.class).set('Name', 'Test Product {#}', 1, 1).times(2).alias('prod_{#}'));
+      .add(SBlueprint.of(Product2.class).set('Name', 'Test Product {#}', 1, 1).times(2).alias('prod_{#}'));
 
     // Act
     orchestrator.create();
@@ -504,22 +504,22 @@ public with sharing class SOrchestratorTest {
     Date today = Date.today();
     SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
       .add(
-        SBluePrint.of(Account.class)
+        SBlueprint.of(Account.class)
           .set('Name', 'Test Account {#}', 1, 1)
           .times(2)
           .withChildren(
-            SBluePrint.of(Opportunity.class)
+            SBlueprint.of(Opportunity.class)
               .parentIdField('AccountId')
               .set('Name', 'Test Opportunity')
               .set('StageName', 'Prospecting')
               .set('CloseDate', today)
               .withChildren(
-                SBluePrint.of(Quote.class)
+                SBlueprint.of(Quote.class)
                   .parentIdField('OpportunityId')
                   .set('Name', 'Test Quote {#}', 1, 1)
                   .times(2)
                   .withChildren(
-                    SBluePrint.of(QuoteLineItem.class)
+                    SBlueprint.of(QuoteLineItem.class)
                       .parentIdField('QuoteId')
                       .use('{P1}', 'Name', 'Description')
                       .set('Quantity', 1)
@@ -571,8 +571,8 @@ public with sharing class SOrchestratorTest {
   static void testCreate_WhenAddChildrenBeforeParent_ThenInsertInOrder() {
     // Arrange
     SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
-      .add(SBluePrint.of(Contact.class).use('acc', 'Id', 'AccountId').set('LastName', 'Test Contact').alias('con'))
-      .add(SBluePrint.of(Account.class).set('Name', 'Test Account').alias('acc'));
+      .add(SBlueprint.of(Contact.class).use('acc', 'Id', 'AccountId').set('LastName', 'Test Contact').alias('con'))
+      .add(SBlueprint.of(Account.class).set('Name', 'Test Account').alias('acc'));
 
     // Act
     orchestrator.create();
@@ -590,11 +590,11 @@ public with sharing class SOrchestratorTest {
     // Arrange
     SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
       .add(
-        SBluePrint.of(Account.class)
+        SBlueprint.of(Account.class)
           .set('Name', 'Test Account')
           .alias('acc')
           .withChildren(
-            SBluePrint.of(Contact.class).set('LastName', 'Test Contact {#}', 1, 1).alias('con_{#}').times(3)
+            SBlueprint.of(Contact.class).set('LastName', 'Test Contact {#}', 1, 1).alias('con_{#}').times(3)
           )
       );
 
@@ -615,9 +615,9 @@ public with sharing class SOrchestratorTest {
   static void testCreate_WhenAddMultiParentAndMultiChildrenWithTimes_ThenInsertAllInOrder_1() {
     // Arrange
     SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
-      .add(SBluePrint.of(Account.class).set('Name', 'Test Account {#}', 1, 1).alias('acc_{#}').times(2))
+      .add(SBlueprint.of(Account.class).set('Name', 'Test Account {#}', 1, 1).alias('acc_{#}').times(2))
       .add(
-        SBluePrint.of(Contact.class)
+        SBlueprint.of(Contact.class)
           .set('LastName', 'Test Contact {#}', 1, 1)
           .use('acc_{#}', 'Id', 'AccountId')
           .alias('con_{#}')
@@ -641,16 +641,16 @@ public with sharing class SOrchestratorTest {
   static void testCreate_WhenAddMultiParentAndMultiChildrenWithTimes_ThenInsertAllInOrder_2() {
     // Arrange
     SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
-      .add(SBluePrint.of(Account.class).set('Name', 'Test Account {#}', 1, 1).alias('acc_{#}').times(2))
+      .add(SBlueprint.of(Account.class).set('Name', 'Test Account {#}', 1, 1).alias('acc_{#}').times(2))
       .add(
-        SBluePrint.of(Contact.class)
+        SBlueprint.of(Contact.class)
           .set('LastName', 'Test Contact {#}', 1, 1)
           .use('acc_1', 'Id', 'AccountId')
           .alias('con_{#}')
           .times(2)
       )
       .add(
-        SBluePrint.of(Contact.class)
+        SBlueprint.of(Contact.class)
           .set('LastName', 'Test Contact {#}', 3, 1)
           .use('acc_2', 'Id', 'AccountId')
           .alias('con_{#}', 3, 1)
@@ -678,9 +678,9 @@ public with sharing class SOrchestratorTest {
   static void testCreate_WhenAddUseWithOffset_ThenInsertInOrder_1() {
     // Arrange
     SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
-      .add(SBluePrint.of(Account.class).set('Name', 'Test Account {#}', 1).alias('acc_{#}').times(2))
+      .add(SBlueprint.of(Account.class).set('Name', 'Test Account {#}', 1).alias('acc_{#}').times(2))
       .add(
-        SBluePrint.of(Contact.class)
+        SBlueprint.of(Contact.class)
           .set('LastName', 'Test Contact {#}', 1)
           .use('acc_{#}', 'Id', 'AccountId', 1)
           .alias('con_{#}')
@@ -705,9 +705,9 @@ public with sharing class SOrchestratorTest {
   static void testCreate_WhenAddUseWithOffset_ThenInsertInORder_2() {
     // Arrange
     SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
-      .add(SBluePrint.of(Account.class).set('Name', 'Test Account {#}', 1).alias('acc_{#}').times(10))
+      .add(SBlueprint.of(Account.class).set('Name', 'Test Account {#}', 1).alias('acc_{#}').times(10))
       .add(
-        SBluePrint.of(Contact.class)
+        SBlueprint.of(Contact.class)
           .set('LastName', 'Test Contact {#}', 6)
           .use('acc_{#}', 'Id', 'AccountId', 6)
           .alias('con_{#}', 6)
@@ -735,15 +735,15 @@ public with sharing class SOrchestratorTest {
   static void testCreate_WhenAddCircularReference_ThenThrowException() {
     // Arrange
     SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
-      .add(SBluePrint.of(Account.class).set('Name', 'Test Account').alias('acc'))
+      .add(SBlueprint.of(Account.class).set('Name', 'Test Account').alias('acc'))
       .add(
-        SBluePrint.of(Contact.class)
+        SBlueprint.of(Contact.class)
           .use('con2', 'AccountId', 'AccountId')
           .set('LastName', 'Test Contact 1')
           .alias('con1')
       )
       .add(
-        SBluePrint.of(Contact.class)
+        SBlueprint.of(Contact.class)
           .use('con1', 'AccountId', 'AccountId')
           .set('LastName', 'Test Contact 2')
           .alias('con2')
@@ -763,9 +763,9 @@ public with sharing class SOrchestratorTest {
   static void testCreate_WhenAddInvalidReference_ThenThrowException() {
     // Arrange
     SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
-      .add(SBluePrint.of(Account.class).set('Name', 'Test Account').alias('acc'))
+      .add(SBlueprint.of(Account.class).set('Name', 'Test Account').alias('acc'))
       .add(
-        SBluePrint.of(Contact.class)
+        SBlueprint.of(Contact.class)
           .use('non_exist', 'AccountId', 'AccountId')
           .set('LastName', 'Test Contact')
           .alias('con')
@@ -786,10 +786,10 @@ public with sharing class SOrchestratorTest {
     // Arrange
     SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
       .add(
-        SBluePrint.of(Account.class)
+        SBlueprint.of(Account.class)
           .set('Name', 'Test Account')
           .alias('acc')
-          .withChildren(SBluePrint.of(Contact.class).set('LastName', 'Test Contact {#}').alias('con').times(2))
+          .withChildren(SBlueprint.of(Contact.class).set('LastName', 'Test Contact {#}').alias('con').times(2))
       );
 
     // Act / Assert
@@ -806,8 +806,8 @@ public with sharing class SOrchestratorTest {
   static void testCreate_WhenSameAliasInDifferentBluePrint_ThenThrowException() {
     // Arrange
     SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
-      .add(SBluePrint.of(Account.class).set('Name', 'Test Account 1').alias('acc'))
-      .add(SBluePrint.of(Account.class).set('Name', 'Test Account 2').alias('acc'));
+      .add(SBlueprint.of(Account.class).set('Name', 'Test Account 1').alias('acc'))
+      .add(SBlueprint.of(Account.class).set('Name', 'Test Account 2').alias('acc'));
 
     // Act / Assert
     try {
@@ -824,10 +824,10 @@ public with sharing class SOrchestratorTest {
     // Arrange
     SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
       .add(
-        SBluePrint.of(User.class)
+        SBlueprint.of(User.class)
           .set('LastName', 'Test User')
           .alias('usr')
-          .withChildren(SBluePrint.of(Account.class).set('Name', 'Test Account').alias('acc'))
+          .withChildren(SBlueprint.of(Account.class).set('Name', 'Test Account').alias('acc'))
       );
     // Act / Assert
     try {

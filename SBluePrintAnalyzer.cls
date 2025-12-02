@@ -18,12 +18,12 @@
  * Analyzes a list of SBlueprints to resolve dependencies and determine the build order.
  * This class is responsible for executing the topological sort algorithm.
  */
-public with sharing class SBluePrintAnalyzer {
+public with sharing class SBlueprintAnalyzer {
   // =================================================================================
   // Properties
   // =================================================================================
 
-  private List<SBluePrint> sBluePrints;
+  private List<SBlueprint> sBluePrints;
   private AutoAliasCounter autoAliasCounter;
 
   // =================================================================================
@@ -35,7 +35,7 @@ public with sharing class SBluePrintAnalyzer {
    *
    * @param sBluePrints The root list of SBlueprints to be analyzed.
    */
-  public SBluePrintAnalyzer(List<SBluePrint> sBluePrints) {
+  public SBlueprintAnalyzer(List<SBlueprint> sBluePrints) {
     this.sBluePrints = sBluePrints;
     this.autoAliasCounter = new AutoAliasCounter();
   }
@@ -67,7 +67,7 @@ public with sharing class SBluePrintAnalyzer {
    */
   private AnalysisContext categorizeBluePrints() {
     AnalysisContext context = new AnalysisContext();
-    for (SBluePrint sBluePrint : this.sBluePrints) {
+    for (SBlueprint sBluePrint : this.sBluePrints) {
       // Ensure every root blueprint has an alias for dependency resolution.
       if (!sBluePrint.hasAlias()) {
         String newAlias = this.generateNewAlias(sBluePrint);
@@ -75,18 +75,18 @@ public with sharing class SBluePrintAnalyzer {
       }
 
       // Recursively categorize children.
-      for (SBluePrint child : sBluePrint.getChildren()) {
+      for (SBlueprint child : sBluePrint.getChildren()) {
         child.setParentBuildPlans(sBluePrint);
         this.categorizeChildBluePrints(context, sBluePrint, child);
       }
 
       // Add the root blueprint (without its children, which are processed separately) to the context.
-      SBluePrint sBluePrintWithoutChildren = sBluePrint.removeChildren();
+      SBlueprint sBluePrintWithoutChildren = sBluePrint.removeChildren();
       if (sBluePrintWithoutChildren.hasDependencies()) {
         PendingBluePrint pendingBluePrint = new PendingBluePrint(sBluePrintWithoutChildren);
-        context.addPendingSBluePrint(pendingBluePrint);
+        context.addPendingSBlueprint(pendingBluePrint);
       } else {
-        context.addRootSBluePrint(sBluePrintWithoutChildren);
+        context.addRootSBlueprint(sBluePrintWithoutChildren);
       }
     }
     return context;
@@ -101,8 +101,8 @@ public with sharing class SBluePrintAnalyzer {
    */
   private void categorizeChildBluePrints(
     AnalysisContext context,
-    SBluePrint parentBluePrint,
-    SBluePrint childBluePrint
+    SBlueprint parentBluePrint,
+    SBlueprint childBluePrint
   ) {
     // Automatically add a `use` dependency on the parent.
     String toParentField;
@@ -121,19 +121,19 @@ public with sharing class SBluePrintAnalyzer {
     }
 
     // Continue the recursion for grandchildren.
-    for (SBluePrint grandChild : childBluePrint.getChildren()) {
+    for (SBlueprint grandChild : childBluePrint.getChildren()) {
       grandChild.setParentBuildPlans(childBluePrint);
       this.categorizeChildBluePrints(context, childBluePrint, grandChild);
     }
 
     // Add the processed child blueprint (without its own children) to the context.
-    SBluePrint sBluePrintWithoutGrandChildren = childBluePrint.removeChildren();
+    SBlueprint sBluePrintWithoutGrandChildren = childBluePrint.removeChildren();
     if (sBluePrintWithoutGrandChildren.hasDependencies()) {
       PendingBluePrint pendingBluePrint = new PendingBluePrint(sBluePrintWithoutGrandChildren);
-      context.addPendingSBluePrint(pendingBluePrint);
+      context.addPendingSBlueprint(pendingBluePrint);
     } else {
       // This case is unlikely for a child but included for completeness.
-      context.addRootSBluePrint(sBluePrintWithoutGrandChildren);
+      context.addRootSBlueprint(sBluePrintWithoutGrandChildren);
     }
   }
 
@@ -149,8 +149,8 @@ public with sharing class SBluePrintAnalyzer {
     Map<String, Integer> aliasDepthMap = new Map<String, Integer>();
 
     // Initialize with root blueprints (layer 0).
-    for (SBluePrint root : context.getRoots()) {
-      buildLayers.addSBluePrint(0, root);
+    for (SBlueprint root : context.getRoots()) {
+      buildLayers.addSBlueprint(0, root);
       aliasDepthMap.put(root.getAlias(), 0);
       for (String alias : root.generateAllAliases()) {
         aliasDepthMap.put(alias, 0);
@@ -182,20 +182,22 @@ public with sharing class SBluePrintAnalyzer {
 
         if (resolvedCount == needResolveCount) {
           // All dependencies are resolved, so this blueprint can be placed in the next layer.
-          SBluePrint resolvedSBluePrint = pending.getSBluePrint();
+          SBlueprint resolvedSBlueprint = pending.getSBlueprint();
           Integer currentDepth = maxDepth + 1;
-          buildLayers.addSBluePrint(currentDepth, resolvedSBluePrint);
+          buildLayers.addSBlueprint(currentDepth, resolvedSBlueprint);
 
           // Add the newly resolved alias and its potential sequence aliases to the depth map.
-          aliasDepthMap.put(resolvedSBluePrint.getAlias(), currentDepth);
+          aliasDepthMap.put(resolvedSBlueprint.getAlias(), currentDepth);
           if (currentDepth > maxLayer) {
             maxLayer = currentDepth;
           }
-          for (String alias : resolvedSBluePrint.generateAllAliases()) {
+          for (String alias : resolvedSBlueprint.generateAllAliases()) {
             aliasDepthMap.put(alias, currentDepth);
           }
-
           pendingBluePrints.remove(i);
+        } else {
+          // Reset dependencies for the next pass.
+          pending.resetDependencies();
         }
       }
 
@@ -208,7 +210,7 @@ public with sharing class SBluePrintAnalyzer {
           Set<String> dependencies = pending.dependencyAliases;
           errorMessage += String.format(
             ' - {0} (depends on: {1})\n',
-            new List<String>{ pending.getSBluePrint().getAlias(), String.join(dependencies, ', ') }
+            new List<String>{ pending.getSBlueprint().getAlias(), String.join(dependencies, ', ') }
           );
         }
         throw new DmlException(errorMessage);
@@ -229,7 +231,7 @@ public with sharing class SBluePrintAnalyzer {
    * @return The API name of the relationship field on the child object.
    * @throws DmlException if no unique relationship field can be found.
    */
-  private String inferParentField(SBluePrint parentBluePrint, SBluePrint childBluePrint) {
+  private String inferParentField(SBlueprint parentBluePrint, SBlueprint childBluePrint) {
     String toParentField;
     SObject parentObject = (SObject) parentBluePrint.getRecordType().newInstance();
     List<Schema.ChildRelationship> childRelationships = parentObject.getSObjectType()
@@ -262,7 +264,7 @@ public with sharing class SBluePrintAnalyzer {
    * @param sBluePrint The SBlueprint to generate an alias for.
    * @return The generated alias string.
    */
-  private String generateNewAlias(SBluePrint sBluePrint) {
+  private String generateNewAlias(SBlueprint sBluePrint) {
     String newAlias = String.format(
       '__{0}_{1}',
       new List<String>{ sBluePrint.getRecordTypeName(), autoAliasCounter.getValue().toString() }
@@ -301,16 +303,16 @@ public with sharing class SBluePrintAnalyzer {
       this.pendingList = new List<PendingBluePrint>();
     }
 
-    public void addRootSBluePrint(SBluePrint sBluePrint) {
-      this.buildLayers.addSBluePrint(0, sBluePrint);
+    public void addRootSBlueprint(SBlueprint sBluePrint) {
+      this.buildLayers.addSBlueprint(0, sBluePrint);
     }
 
-    public void addPendingSBluePrint(PendingBluePrint pendingBluePrint) {
+    public void addPendingSBlueprint(PendingBluePrint pendingBluePrint) {
       this.pendingList.add(pendingBluePrint);
     }
 
-    public List<SBluePrint> getRoots() {
-      return this.buildLayers.getSBluePrintsByLayer(0);
+    public List<SBlueprint> getRoots() {
+      return this.buildLayers.getSBlueprintsByLayer(0);
     }
   }
 
@@ -318,10 +320,10 @@ public with sharing class SBluePrintAnalyzer {
    * A wrapper for SBlueprints that are waiting for their dependencies to be resolved.
    */
   private class PendingBluePrint {
-    private SBluePrint sBluePrint;
+    private SBlueprint sBluePrint;
     private Set<String> dependencyAliases;
 
-    public PendingBluePrint(SBluePrint sBluePrint) {
+    public PendingBluePrint(SBlueprint sBluePrint) {
       this.sBluePrint = sBluePrint;
       this.dependencyAliases = sBluePrint.getDependencyAliases();
     }
@@ -353,7 +355,11 @@ public with sharing class SBluePrintAnalyzer {
       return this.sBluePrint.getDependencyAliases().size();
     }
 
-    public SBluePrint getSBluePrint() {
+    public void resetDependencies() {
+      this.dependencyAliases = this.sBluePrint.getDependencyAliases();
+    }
+
+    public SBlueprint getSBlueprint() {
       return this.sBluePrint;
     }
   }

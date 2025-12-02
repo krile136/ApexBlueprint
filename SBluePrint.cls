@@ -20,7 +20,7 @@
  * including field values, aliases, dependencies, and hierarchical relationships.
  * It is designed to be immutable; each configuration method returns a new SBlueprint instance.
  */
-public with sharing class SBluePrint {
+public with sharing class SBlueprint {
   @TestVisible
   private System.Type recordType;
   @TestVisible
@@ -46,7 +46,7 @@ public with sharing class SBluePrint {
    *
    * @param recordType The type of SObject this blueprint represents.
    */
-  private SBluePrint(System.Type recordType) {
+  private SBlueprint(System.Type recordType) {
     this.recordType = recordType;
   }
 
@@ -56,7 +56,7 @@ public with sharing class SBluePrint {
    * @param recordType The System.Type of the SObject (e.g., Account.class).
    * @return A new SBlueprint instance.
    */
-  public static SBluePrint of(System.Type recordType) {
+  public static SBlueprint of(System.Type recordType) {
     guard(recordType);
     return new SBlueprint(recordType);
   }
@@ -153,7 +153,8 @@ public with sharing class SBluePrint {
    * @return A new SBlueprint instance with the added dependency.
    */
   public SBlueprint use(String alias, String fromField, String toField) {
-    return this.use(alias, fromField, toField, 1, 1);
+    SBlueprint newSBlueprint = this.deepCopy();
+    return newSBlueprint.use(alias, fromField, toField, 1, 1);
   }
 
   /**
