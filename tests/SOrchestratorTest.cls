@@ -256,16 +256,14 @@ public with sharing class SOrchestratorTest {
           .set('Name', 'Test Account {#}', 1, 1)
           .times(2)
           .withChildren(
-            SBlueprint.of(Opportunity.class)
+            SBlueprint.of(Contact.class)
               .parentIdField('AccountId')
-              .set('Name', 'Test Opportunity {#}', 1, 1)
-              .set('StageName', 'Prospecting')
-              .set('CloseDate', today)
+              .set('LastName', 'Test Contact {#}', 1, 1)
               .times(2)
               .withChildren(
-                SBlueprint.of(Quote.class)
-                  .parentIdField('OpportunityId')
-                  .set('Name', 'Test Quote {#}', 1, 1)
+                SBlueprint.of(Case.class)
+                  .parentIdField('ContactId')
+                  .set('Subject', 'Test Case {#}', 1, 1)
                   .times(2)
               )
           )
@@ -280,23 +278,21 @@ public with sharing class SOrchestratorTest {
       Account acc = (Account) orchestrator.getByAlias(accAlias);
       Assert.areEqual('Test Account ' + i, acc.Name);
       for (Integer j = 1; j <= 2; j++) {
-        String oppAlias =
+        String conAlias =
           accAlias +
           '_' +
-          String.format('__Opportunity_1_{0}__', new List<String>{ String.valueOf(j) });
-        Opportunity opp = (Opportunity) orchestrator.getByAlias(oppAlias);
-        Assert.areEqual(acc.Id, opp.AccountId);
-        Assert.areEqual('Test Opportunity ' + j, opp.Name);
-        Assert.areEqual('Prospecting', opp.StageName);
-        Assert.areEqual(today, opp.CloseDate);
+          String.format('__Contact_1_{0}__', new List<String>{ String.valueOf(j) });
+        Contact con = (Contact) orchestrator.getByAlias(conAlias);
+        Assert.areEqual(acc.Id, con.AccountId);
+        Assert.areEqual('Test Contact ' + j, con.LastName);
         for (Integer k = 1; k <= 2; k++) {
-          String quoteAlias =
-            oppAlias +
+          String caseAlias =
+            conAlias +
             '_' +
-            String.format('__Quote_2_{0}__', new List<String>{ String.valueOf(k) });
-          Quote quote = (Quote) orchestrator.getByAlias(quoteAlias);
-          Assert.areEqual(opp.Id, quote.OpportunityId);
-          Assert.areEqual('Test Quote ' + k, quote.Name);
+            String.format('__Case_2_{0}__', new List<String>{ String.valueOf(k) });
+          Case cas = (Case) orchestrator.getByAlias(caseAlias);
+          Assert.areEqual(con.Id, cas.ContactId);
+          Assert.areEqual('Test Case ' + k, cas.Subject);
         }
       }
     }
@@ -312,17 +308,15 @@ public with sharing class SOrchestratorTest {
           .set('Name', 'Test Account {#}', 1, 1)
           .times(2)
           .withChildren(
-            SBlueprint.of(Opportunity.class)
+            SBlueprint.of(Contact.class)
               .parentIdField('AccountId')
-              .set('Name', 'Test Opportunity {#}', 1, 1)
-              .set('StageName', 'Prospecting')
-              .set('CloseDate', today)
-              .alias('{P0}_opp_{#}')
+              .set('LastName', 'Test Contact {#}', 1, 1)
+              .alias('{P0}_con_{#}')
               .times(2)
               .withChildren(
-                SBlueprint.of(Quote.class)
-                  .parentIdField('OpportunityId')
-                  .set('Name', 'Test Quote {#}', 1, 1)
+                SBlueprint.of(Case.class)
+                  .parentIdField('ContactId')
+                  .set('Subject', 'Test Case {#}', 1, 1)
                   .times(2)
               )
           )
@@ -337,21 +331,19 @@ public with sharing class SOrchestratorTest {
       Account acc = (Account) orchestrator.getByAlias(accAlias);
       Assert.areEqual('Test Account ' + i, acc.Name);
       for (Integer j = 1; j <= 2; j++) {
-        String oppAlias = accAlias + '_opp_' + j;
-        Opportunity opp = (Opportunity) orchestrator.getByAlias(oppAlias);
-        Assert.areEqual(acc.Id, opp.AccountId);
-        Assert.areEqual('Test Opportunity ' + j, opp.Name);
-        Assert.areEqual('Prospecting', opp.StageName);
-        Assert.areEqual(today, opp.CloseDate);
+        String conAlias = accAlias + '_con_' + j;
+        Contact con = (Contact) orchestrator.getByAlias(conAlias);
+        Assert.areEqual(acc.Id, con.AccountId);
+        Assert.areEqual('Test Contact ' + j, con.LastName);
         for (Integer k = 1; k <= 2; k++) {
-          String quoteAlias =
-            oppAlias +
+          String caseAlias =
+            conAlias +
             '_' +
-            String.format('__Quote_1_{0}__', new List<String>{ String.valueOf(k) });
-          System.debug('quoteAlias: ' + quoteAlias);
-          Quote quote = (Quote) orchestrator.getByAlias(quoteAlias);
-          Assert.areEqual(opp.Id, quote.OpportunityId);
-          Assert.areEqual('Test Quote ' + k, quote.Name);
+            String.format('__Case_1_{0}__', new List<String>{ String.valueOf(k) });
+          System.debug('caseAlias: ' + caseAlias);
+          Case cas = (Case) orchestrator.getByAlias(caseAlias);
+          Assert.areEqual(con.Id, cas.ContactId);
+          Assert.areEqual('Test Case ' + k, cas.Subject);
         }
       }
     }
@@ -367,23 +359,20 @@ public with sharing class SOrchestratorTest {
           .set('Name', 'Test Account {#}', 1, 1)
           .times(2)
           .withChildren(
-            SBlueprint.of(Opportunity.class)
+            SBlueprint.of(Contact.class)
               .parentIdField('AccountId')
-              .set('Name', 'Test Opportunity {#}', 1, 1)
-              .set('StageName', 'Prospecting')
-              .set('CloseDate', today)
+              .set('LastName', 'Test Contact {#}', 1, 1)
               .times(2)
               .withChildren(
-                SBlueprint.of(Quote.class)
-                  .parentIdField('OpportunityId')
-                  .set('Name', 'Test Quote {#}', 1, 1)
+                SBlueprint.of(Case.class)
+                  .parentIdField('ContactId')
+                  .set('Subject', 'Test Case {#}', 1, 1)
                   .times(2)
                   .withChildren(
-                    SBlueprint.of(QuoteLineItem.class)
-                      .parentIdField('QuoteId')
-                      .use('prod_{#}', 'Id', 'PricebookEntryId')
-                      .set('Quantity', 1)
-                      .set('UnitPrice', 100)
+                    SBlueprint.of(Case.class)
+                      .parentIdField('ParentId')
+                      .use('prod_{#}', 'Name', 'Description')
+                      .set('Subject', 'Child Case')
                       .times(2)
                   )
               )
@@ -400,23 +389,21 @@ public with sharing class SOrchestratorTest {
       Account acc = (Account) orchestrator.getByAlias(accAlias);
       Assert.areEqual('Test Account ' + i, acc.Name);
       for (Integer j = 1; j <= 2; j++) {
-        String oppAlias =
+        String conAlias =
           accAlias +
           '_' +
-          String.format('__Opportunity_1_{0}__', new List<String>{ String.valueOf(j) });
-        Opportunity opp = (Opportunity) orchestrator.getByAlias(oppAlias);
-        Assert.areEqual(acc.Id, opp.AccountId);
-        Assert.areEqual('Test Opportunity ' + j, opp.Name);
-        Assert.areEqual('Prospecting', opp.StageName);
-        Assert.areEqual(today, opp.CloseDate);
+          String.format('__Contact_1_{0}__', new List<String>{ String.valueOf(j) });
+        Contact con = (Contact) orchestrator.getByAlias(conAlias);
+        Assert.areEqual(acc.Id, con.AccountId);
+        Assert.areEqual('Test Contact ' + j, con.LastName);
         for (Integer k = 1; k <= 2; k++) {
-          String quoteAlias =
-            oppAlias +
+          String caseAlias =
+            conAlias +
             '_' +
-            String.format('__Quote_2_{0}__', new List<String>{ String.valueOf(k) });
-          Quote quote = (Quote) orchestrator.getByAlias(quoteAlias);
-          Assert.areEqual(opp.Id, quote.OpportunityId);
-          Assert.areEqual('Test Quote ' + k, quote.Name);
+            String.format('__Case_2_{0}__', new List<String>{ String.valueOf(k) });
+          Case cas = (Case) orchestrator.getByAlias(caseAlias);
+          Assert.areEqual(con.Id, cas.ContactId);
+          Assert.areEqual('Test Case ' + k, cas.Subject);
         }
       }
     }
@@ -431,24 +418,20 @@ public with sharing class SOrchestratorTest {
         SBlueprint.of(Account.class)
           .set('Name', 'Test Account')
           .withChildren(
-            SBlueprint.of(Opportunity.class)
+            SBlueprint.of(Contact.class)
               .parentIdField('AccountId')
-              .set('Name', 'Test Opportunity {#}', 1, 1)
-              .set('StageName', 'Prospecting')
-              .set('CloseDate', today)
+              .set('LastName', 'Test Contact {#}', 1, 1)
               .times(2)
               .withChildren(
-                SBlueprint.of(Quote.class)
-                  .parentIdField('OpportunityId')
-                  .set('Name', 'Test Quote {#}', 1, 1)
+                SBlueprint.of(Case.class)
+                  .parentIdField('ContactId')
+                  .set('Subject', 'Test Case {#}', 1, 1)
                   .times(2)
                   .withChildren(
-                    SBlueprint.of(QuoteLineItem.class)
-                      .parentIdField('QuoteId')
-                      .use('prod_{#}', 'Id', 'PricebookEntryId')
-                      .use('{P0}', 'Name', 'Description')
-                      .set('Quantity', 1)
-                      .set('UnitPrice', 100)
+                    SBlueprint.of(Case.class)
+                      .parentIdField('ParentId')
+                      .use('prod_{#}', 'Name', 'Description')
+                      .use('{P0}', 'Name', 'Subject')
                       .times(2)
                   )
               )
@@ -464,35 +447,31 @@ public with sharing class SOrchestratorTest {
     Account acc = (Account) orchestrator.getByAlias(accAlias);
     Assert.areEqual('Test Account', acc.Name);
     for (Integer i = 1; i <= 2; i++) {
-      String oppAlias =
+      String conAlias =
         accAlias +
         '_' +
-        String.format('__Opportunity_1_{0}__', new List<String>{ String.valueOf(i) });
-      Opportunity opp = (Opportunity) orchestrator.getByAlias(oppAlias);
-      Assert.areEqual(acc.Id, opp.AccountId);
-      Assert.areEqual('Test Opportunity ' + i, opp.Name);
-      Assert.areEqual('Prospecting', opp.StageName);
-      Assert.areEqual(today, opp.CloseDate);
+        String.format('__Contact_1_{0}__', new List<String>{ String.valueOf(i) });
+      Contact con = (Contact) orchestrator.getByAlias(conAlias);
+      Assert.areEqual(acc.Id, con.AccountId);
+      Assert.areEqual('Test Contact ' + i, con.LastName);
       for (Integer j = 1; j <= 2; j++) {
-        String quoteAlias =
-          oppAlias +
+        String caseAlias =
+          conAlias +
           '_' +
-          String.format('__Quote_2_{0}__', new List<String>{ String.valueOf(j) });
-        Quote quote = (Quote) orchestrator.getByAlias(quoteAlias);
-        Assert.areEqual(opp.Id, quote.OpportunityId);
-        Assert.areEqual('Test Quote ' + j, quote.Name);
+          String.format('__Case_2_{0}__', new List<String>{ String.valueOf(j) });
+        Case cas = (Case) orchestrator.getByAlias(caseAlias);
+        Assert.areEqual(con.Id, cas.ContactId);
+        Assert.areEqual('Test Case ' + j, cas.Subject);
         for (Integer k = 1; k <= 2; k++) {
-          String qliAlias =
-            quoteAlias +
+          String childCaseAlias =
+            caseAlias +
             '_' +
-            String.format('__QuoteLineItem_3_{0}__', new List<String>{ String.valueOf(k) });
-          QuoteLineItem qli = (QuoteLineItem) orchestrator.getByAlias(qliAlias);
-          Assert.areEqual(quote.Id, qli.QuoteId);
-          Assert.areEqual(1, qli.Quantity);
-          Assert.areEqual(100, qli.UnitPrice);
-          Assert.areEqual('Test Account', qli.Description);
+            String.format('__Case_3_{0}__', new List<String>{ String.valueOf(k) });
+          Case childCase = (Case) orchestrator.getByAlias(childCaseAlias);
+          Assert.areEqual(cas.Id, childCase.ParentId);
+          Assert.areEqual('Test Account', childCase.Subject);
           Product2 prod = (Product2) orchestrator.getByAlias('prod_' + k);
-          Assert.areEqual(prod.Id, qli.PricebookEntryId);
+          Assert.areEqual(prod.Name, childCase.Description);
         }
       }
     }
@@ -508,22 +487,18 @@ public with sharing class SOrchestratorTest {
           .set('Name', 'Test Account {#}', 1, 1)
           .times(2)
           .withChildren(
-            SBlueprint.of(Opportunity.class)
+            SBlueprint.of(Contact.class)
               .parentIdField('AccountId')
-              .set('Name', 'Test Opportunity')
-              .set('StageName', 'Prospecting')
-              .set('CloseDate', today)
+              .set('LastName', 'Test Contact')
               .withChildren(
-                SBlueprint.of(Quote.class)
-                  .parentIdField('OpportunityId')
-                  .set('Name', 'Test Quote {#}', 1, 1)
+                SBlueprint.of(Case.class)
+                  .parentIdField('ContactId')
+                  .set('Subject', 'Test Case {#}', 1, 1)
                   .times(2)
                   .withChildren(
-                    SBlueprint.of(QuoteLineItem.class)
-                      .parentIdField('QuoteId')
-                      .use('{P1}', 'Name', 'Description')
-                      .set('Quantity', 1)
-                      .set('UnitPrice', 100)
+                    SBlueprint.of(Case.class)
+                      .parentIdField('ParentId')
+                      .use('{P1}', 'LastName', 'Subject')
                       .times(2)
                   )
               )
@@ -538,30 +513,26 @@ public with sharing class SOrchestratorTest {
       String accAlias = String.format('__Account_0_{0}__', new List<String>{ String.valueOf(i) });
       Account acc = (Account) orchestrator.getByAlias(accAlias);
       Assert.areEqual('Test Account ' + i, acc.Name);
-      String oppAlias = accAlias + '_' + '__Opportunity_1_1__';
-      Opportunity opp = (Opportunity) orchestrator.getByAlias(oppAlias);
-      Assert.areEqual(acc.Id, opp.AccountId);
-      Assert.areEqual('Test Opportunity', opp.Name);
-      Assert.areEqual('Prospecting', opp.StageName);
-      Assert.areEqual(today, opp.CloseDate);
+      String conAlias = accAlias + '_' + '__Contact_1_1__';
+      Contact con = (Contact) orchestrator.getByAlias(conAlias);
+      Assert.areEqual(acc.Id, con.AccountId);
+      Assert.areEqual('Test Contact', con.LastName);
       for (Integer j = 1; j <= 2; j++) {
-        String quoteAlias =
-          oppAlias +
+        String caseAlias =
+          conAlias +
           '_' +
-          String.format('__Quote_2_{0}__', new List<String>{ String.valueOf(j) });
-        Quote quote = (Quote) orchestrator.getByAlias(quoteAlias);
-        Assert.areEqual(opp.Id, quote.OpportunityId);
-        Assert.areEqual('Test Quote ' + j, quote.Name);
+          String.format('__Case_2_{0}__', new List<String>{ String.valueOf(j) });
+        Case cas = (Case) orchestrator.getByAlias(caseAlias);
+        Assert.areEqual(con.Id, cas.ContactId);
+        Assert.areEqual('Test Case ' + j, cas.Subject);
         for (Integer k = 1; k <= 2; k++) {
-          String qliAlias =
-            quoteAlias +
+          String childCaseAlias =
+            caseAlias +
             '_' +
-            String.format('__QuoteLineItem_3_{0}__', new List<String>{ String.valueOf(k) });
-          QuoteLineItem qli = (QuoteLineItem) orchestrator.getByAlias(qliAlias);
-          Assert.areEqual(quote.Id, qli.QuoteId);
-          Assert.areEqual(1, qli.Quantity);
-          Assert.areEqual(100, qli.UnitPrice);
-          Assert.areEqual('Test Opportunity', qli.Description);
+            String.format('__Case_3_{0}__', new List<String>{ String.valueOf(k) });
+          Case childCase = (Case) orchestrator.getByAlias(childCaseAlias);
+          Assert.areEqual(cas.Id, childCase.ParentId);
+          Assert.areEqual('Test Contact', childCase.Subject);
         }
       }
     }
