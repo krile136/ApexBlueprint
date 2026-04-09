@@ -60,7 +60,7 @@ All the tedious work, like the insertion order of records and passing IDs, is au
 Add `ApexBlueprint` to your project using `git submodule`.
 ```bash
 $ cd force-app/main/default/classes
-$ git submodule add https://github.com/krile16/ApexBlueprint.git ApexBlueprint
+$ git submodule add https://github.com/krile136/ApexBlueprint.git ApexBlueprint
 ```
 
 One Command Deployment!
