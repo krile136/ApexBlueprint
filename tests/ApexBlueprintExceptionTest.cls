@@ -46,6 +46,61 @@ public with sharing class ApexBlueprintExceptionTest {
   }
 
   @isTest
+  static void testMessage_WhenBuiltWithAndWithoutCause_ThenBothFormatsWork() {
+    // Act
+    ApexBlueprintException plain = ApexBlueprintException.message('SBlueprint', 'template()', 'some error', 'do something').build();
+    ApexBlueprintException chained = ApexBlueprintException.message('SBlueprint', 'template()', 'some error', 'do something', new SObjectException('root')).build();
+
+    // Assert
+    Assert.isTrue(plain.getMessage().contains('some error'), plain.getMessage());
+    Assert.isTrue(plain.getMessage().contains('do something'), plain.getMessage());
+    Assert.isNull(plain.getCause());
+    Assert.areEqual('root', chained.getCause().getMessage());
+  }
+
+  @isTest
+  static void testInvalidArgument_WhenMapOverloadsUsed_ThenAllParamsListed() {
+    // Arrange
+    Map<String, Object> params = new Map<String, Object>{ 'startAt' => 0, 'interval' => -1 };
+
+    // Act
+    ApexBlueprintException plain = ApexBlueprintException.invalidArgument('SBlueprint', 'set()', 'bad sequence', 'fix it', params).build();
+    ApexBlueprintException chained = ApexBlueprintException.invalidArgument('SBlueprint', 'set()', 'bad sequence', 'fix it', params, new SObjectException('root')).build();
+
+    // Assert
+    Assert.isTrue(plain.getMessage().contains('The provided arguments are Invalid'), plain.getMessage());
+    Assert.isTrue(plain.getMessage().contains('[startAt => 0]'), plain.getMessage());
+    Assert.isTrue(plain.getMessage().contains('[interval => -1]'), plain.getMessage());
+    Assert.areEqual('root', chained.getCause().getMessage());
+  }
+
+  @isTest
+  static void testInvalidArgumentAndRequired_WhenCauseGiven_ThenChained() {
+    // Act
+    ApexBlueprintException arg = ApexBlueprintException.invalidArgument('C', 'm()', 'r', 'a', 'p', 'v', new SObjectException('argRoot')).build();
+    ApexBlueprintException req = ApexBlueprintException.required('C', 'm()', 'p', null, new SObjectException('reqRoot')).build();
+
+    // Assert
+    Assert.areEqual('argRoot', arg.getCause().getMessage());
+    Assert.areEqual('reqRoot', req.getCause().getMessage());
+  }
+
+  @isTest
+  static void testBuilder_WhenEmptyStringParamAndOverrideClassName_ThenFormatted() {
+    // Act
+    ApexBlueprintException e = ApexBlueprintException.at('Original')
+      .overrideClassName('Overridden')
+      .method('m()')
+      .error('err')
+      .param('text', '')
+      .build();
+
+    // Assert
+    Assert.isTrue(e.getMessage().contains('Overridden.m()'), e.getMessage());
+    Assert.isTrue(e.getMessage().contains('[text => empty string]'), e.getMessage());
+  }
+
+  @isTest
   static void testFire_WhenCalled_ThenThrowsApexBlueprintException() {
     // Act / Assert
     try {

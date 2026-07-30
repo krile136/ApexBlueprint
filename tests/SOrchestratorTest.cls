@@ -936,6 +936,43 @@ public with sharing class SOrchestratorTest {
   }
 
   @isTest
+  static void testCreate_WhenUseFromFieldDoesNotExist_ThenErrorExplainsIt() {
+    // Arrange
+    SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
+      .add(SBlueprint.of(Account.class).set('Name', 'A').alias('acc'))
+      .add(SBlueprint.of(Contact.class).set('LastName', 'C').alias('con').use('acc', 'NoSuchField__c', 'LastName'));
+
+    // Act / Assert
+    try {
+      orchestrator.create();
+      Assert.fail();
+    } catch (ApexBlueprintException e) {
+      Assert.isTrue(e.getMessage().contains('fromField'), e.getMessage());
+      Assert.isTrue(e.getMessage().contains('NoSuchField__c'), e.getMessage());
+      Assert.isTrue(e.getMessage().contains('does not exist on Account'), e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testCreate_WhenUseToFieldDoesNotExist_ThenErrorExplainsIt() {
+    // Arrange
+    SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
+      .add(SBlueprint.of(Account.class).set('Name', 'A').alias('acc'))
+      .add(SBlueprint.of(Contact.class).set('LastName', 'C').alias('con').use('acc', 'Id', 'NoSuchField__c'));
+
+    // Act / Assert
+    try {
+      orchestrator.create();
+      Assert.fail();
+    } catch (ApexBlueprintException e) {
+      Assert.isTrue(e.getMessage().contains('toField'), e.getMessage());
+      Assert.isTrue(e.getMessage().contains('NoSuchField__c'), e.getMessage());
+      Assert.isTrue(e.getMessage().contains('does not exist on Contact'), e.getMessage());
+      Assert.isTrue(e.getMessage().contains('con'), e.getMessage());
+    }
+  }
+
+  @isTest
   static void testCreate_WhenAmbiousRelationship_ThenThrowException() {
     // Arrange
     SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
