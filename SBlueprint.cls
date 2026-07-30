@@ -455,6 +455,11 @@ public with sharing class SBlueprint {
       if (objectName == 'Account') {
         shareBlueprint = shareBlueprint.set('OpportunityAccessLevel', 'None');
       }
+      // Inherit this blueprint's parent build plans so that {Pn} placeholders in the
+      // referenced alias resolve exactly as they do for the nested child itself —
+      // a share declared on a child under a times()-multiplied parent multiplies
+      // along with it.
+      shareBlueprint.parentBuildPlans = this.parentBuildPlans.clone();
       shareBlueprints.add(shareBlueprint);
     }
     return shareBlueprints;

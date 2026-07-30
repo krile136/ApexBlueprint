@@ -229,8 +229,7 @@ SOrchestrator.start()
 
 - Share object name, parent Id field, and access level field are derived automatically (custom `Foo__c` → `Foo__Share` with `ParentId`/`AccessLevel`; standard `Account` → `AccountShare` with `AccountId`/`AccountAccessLevel`, `OpportunityAccessLevel` defaulted to `None`). `RowCause` is `Manual`.
 - Fails fast with a clear error when the share object does not exist (OWD is Public — manual shares are impossible) or when the share target is the declared owner (Salesforce rejects it).
-- `.times(n)` on the shared blueprint generates one share row per record.
-- Limitation: `sharedWith()` on a child nested under a `times()`-multiplied parent needs an explicit alias without `{Pn}` placeholders (the analyzer reports an invalid reference otherwise).
+- `.times(n)` on the shared blueprint generates one share row per record, and this composes with nesting: a `sharedWith()` on a child under a `times()`-multiplied parent (with `{P0}`/`{#}` aliases) multiplies along with the child — one share per generated child record.
 
 ### {P0} Placeholder
 

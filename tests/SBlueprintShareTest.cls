@@ -103,6 +103,41 @@ public with sharing class SBlueprintShareTest {
   }
 
   @isTest
+  static void testCreate_WhenChildUnderTimesParent_ThenSharePerNestedChild() {
+    // Arrange - the natural nested style: times-multiplied parent, {P0}/{#} child alias
+    User grantee = currentUser();
+    SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
+      .add(
+        SBlueprint.of(Account.class)
+          .set('Name', 'Acc-{#}')
+          .alias('acc_{#}')
+          .times(2)
+          .withChildren(
+            SBlueprint.of(Opportunity.class)
+              .set('Name', 'Opp')
+              .alias('{P0}_opp_{#}')
+              .times(2)
+              .sharedWith(grantee, 'Read')
+          )
+      );
+
+    // Act
+    orchestrator.create();
+
+    // Assert - 2 parents x 2 children = 4 shares, each wired to its own record
+    for (Integer i = 1; i <= 2; i++) {
+      for (Integer j = 1; j <= 2; j++) {
+        String childAlias = 'acc_' + i + '_opp_' + j;
+        Opportunity opp = (Opportunity) orchestrator.getByAlias(childAlias);
+        OpportunityShare share = (OpportunityShare) orchestrator.getByAlias(childAlias + '__share_1');
+        Assert.isNotNull(share, 'Share should be generated for ' + childAlias);
+        Assert.areEqual(opp.Id, share.OpportunityId, 'Share must point at its own record: ' + childAlias);
+        Assert.areEqual('Read', share.OpportunityAccessLevel);
+      }
+    }
+  }
+
+  @isTest
   static void testOwner_WhenGiven_ThenOwnerIdSet() {
     // Arrange
     User ownerUser = currentUser();
