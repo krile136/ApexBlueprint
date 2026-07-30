@@ -191,17 +191,26 @@ SOrchestrator.start()
 
 The same `{#}` sequence placeholders (and `startAt` / `interval` overloads) as `.use()` are supported, so you can order a record after a whole `.times(n)` group: `.after('grp_{#}')`.
 
-### Detailed field error messages
+### ApexBlueprintException & detailed field error messages
 
-When a field value cannot be applied during `create()`, the error now explains **why**, using schema describe information — resolved lazily on the failure path only, so there is no overhead when everything succeeds:
+All framework validation errors are thrown as **`ApexBlueprintException`** (previously a bare `DmlException`). This cleanly separates the two failure classes during `create()`:
+
+- `ApexBlueprintException` — your blueprint declaration is wrong (fix the test code)
+- `DmlException` — the org rejected the actual insert (fix the template or the org config)
+
+When a field value cannot be applied, the error explains **why**, using schema describe information — resolved lazily on the failure path only, so there is no overhead when everything succeeds:
 
 ```
-Failed to apply field 'ExpectedRevenue' on Opportunity (blueprint alias: 'opp', from: set() / template()).
-Reason: The field is not createable (system field or read-only for the running user). Remove it from the blueprint or grant the required permission.
-Original error: ...
+====== APEX BLUEPRINT EXCEPTION ======
+Location: SBlueprintRealizer.realizeBase()
+Error   : Failed to apply field 'ExpectedRevenue' on Opportunity (blueprint alias: 'opp', from: set() / template()).
+Reason  : The field is not createable (system field or read-only for the running user). Remove it from the blueprint or grant the required permission.
+Provided: [ExpectedRevenue => 100]
 ```
 
 Covered diagnoses: field does not exist / formula field / auto number field / not createable / value type mismatch (with the expected field type).
+
+> ⚠️ **Breaking change**: code that caught `DmlException` for framework validation errors (e.g. duplicate alias, circular reference, argument guards) must catch `ApexBlueprintException` instead. Real DML failures from the insert itself remain `DmlException`.
 
 ### {P0} Placeholder
 

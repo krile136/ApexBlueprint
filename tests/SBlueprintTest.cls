@@ -20,11 +20,11 @@ public with sharing class SBlueprintTest {
     try {
       SBlueprint sBluePrint = SBlueprint.of(recordType);
       Assert.fail('Exception should be thrown');
-    } catch (DmlException e) {
+    } catch (ApexBlueprintException e) {
       String actual = e.getMessage();
       System.debug(actual);
-      String expected = 'RecordType must not be null';
-      Assert.areEqual(expected, actual);
+      String expected = 'The `recordType` argument is required';
+      Assert.isTrue(actual.contains(expected), actual);
     }
   }
 
@@ -37,11 +37,11 @@ public with sharing class SBlueprintTest {
     try {
       SBlueprint sBluePrint = SBlueprint.of(recordType);
       Assert.fail('Exception should be thrown');
-    } catch (DmlException e) {
+    } catch (ApexBlueprintException e) {
       String actual = e.getMessage();
       System.debug(actual);
-      String expected = 'RecordType must be SObject type';
-      Assert.areEqual(expected, actual);
+      String expected = 'recordType is not an SObject type';
+      Assert.isTrue(actual.contains(expected), actual);
     }
   }
 
@@ -91,11 +91,11 @@ public with sharing class SBlueprintTest {
     try {
       SBlueprint newSBlueprint = sBluePrint.set(fieldName, fieldValue, startAt).times(times);
       Assert.fail('Exception should be thrown');
-    } catch (DmlException e) {
+    } catch (ApexBlueprintException e) {
       String actual = e.getMessage();
       System.debug(actual);
       String expected = 'startAt must be greater than 0';
-      Assert.areEqual(expected, actual);
+      Assert.isTrue(actual.contains(expected), actual);
     }
   }
 
@@ -133,11 +133,11 @@ public with sharing class SBlueprintTest {
     try {
       SBlueprint newSBlueprint = sBluePrint.set(fieldName, fieldValue, startAt, interval).times(times);
       Assert.fail('Exception should be thrown');
-    } catch (DmlException e) {
+    } catch (ApexBlueprintException e) {
       String actual = e.getMessage();
       System.debug(actual);
       String expected = 'interval must be greater than 0';
-      Assert.areEqual(expected, actual);
+      Assert.isTrue(actual.contains(expected), actual);
     }
   }
 
@@ -258,11 +258,11 @@ public with sharing class SBlueprintTest {
     try {
       SBlueprint newSBlueprint = sBluePrint.use(alias, fromField, toField);
       Assert.fail('Exception should be thrown');
-    } catch (DmlException e) {
+    } catch (ApexBlueprintException e) {
       String actual = e.getMessage();
       System.debug(actual);
-      String expected = 'alias must not be null';
-      Assert.areEqual(expected, actual);
+      String expected = 'The `alias` argument is required';
+      Assert.isTrue(actual.contains(expected), actual);
     }
   }
 
@@ -278,11 +278,11 @@ public with sharing class SBlueprintTest {
     try {
       SBlueprint newSBlueprint = sBluePrint.use(alias, fromField, toField);
       Assert.fail('Exception should be thrown');
-    } catch (DmlException e) {
+    } catch (ApexBlueprintException e) {
       String actual = e.getMessage();
       System.debug(actual);
-      String expected = 'fromField must not be null';
-      Assert.areEqual(expected, actual);
+      String expected = 'The `fromField` argument is required';
+      Assert.isTrue(actual.contains(expected), actual);
     }
   }
 
@@ -298,11 +298,11 @@ public with sharing class SBlueprintTest {
     try {
       SBlueprint newSBlueprint = sBluePrint.use(alias, fromField, toField);
       Assert.fail('Exception should be thrown');
-    } catch (DmlException e) {
+    } catch (ApexBlueprintException e) {
       String actual = e.getMessage();
       System.debug(actual);
-      String expected = 'toField must not be null';
-      Assert.areEqual(expected, actual);
+      String expected = 'The `toField` argument is required';
+      Assert.isTrue(actual.contains(expected), actual);
     }
   }
 
@@ -319,11 +319,11 @@ public with sharing class SBlueprintTest {
     try {
       SBlueprint newSBlueprint = sBluePrint.use(alias, fromField, toField, startAt).times(times);
       Assert.fail('Exception should be thrown');
-    } catch (DmlException e) {
+    } catch (ApexBlueprintException e) {
       String actual = e.getMessage();
       System.debug(actual);
       String expected = 'startAt must be greater than 0';
-      Assert.areEqual(expected, actual);
+      Assert.isTrue(actual.contains(expected), actual);
     }
   }
 
@@ -342,11 +342,11 @@ public with sharing class SBlueprintTest {
     try {
       SBlueprint newSBlueprint = sBluePrint.use(alias, fromField, toField, startAt, interval).times(times);
       Assert.fail('Exception should be thrown');
-    } catch (DmlException e) {
+    } catch (ApexBlueprintException e) {
       String actual = e.getMessage();
       System.debug(actual);
       String expected = 'interval must be greater than 0';
-      Assert.areEqual(expected, actual);
+      Assert.isTrue(actual.contains(expected), actual);
     }
   }
 
@@ -410,11 +410,11 @@ public with sharing class SBlueprintTest {
     try {
       SBlueprint newSBlueprint = sBluePrint.alias(alias);
       Assert.fail('Exception should be thrown');
-    } catch (DmlException e) {
+    } catch (ApexBlueprintException e) {
       String actual = e.getMessage();
       System.debug(actual);
-      String expected = 'alias must not be null';
-      Assert.areEqual(expected, actual);
+      String expected = 'The `alias` argument is required';
+      Assert.isTrue(actual.contains(expected), actual);
     }
   }
 
@@ -429,11 +429,11 @@ public with sharing class SBlueprintTest {
     try {
       SBlueprint newSBlueprint = sBluePrint.alias(alias, startAt).times(times);
       Assert.fail('Exception should be thrown');
-    } catch (DmlException e) {
+    } catch (ApexBlueprintException e) {
       String actual = e.getMessage();
       System.debug(actual);
       String expected = 'startAt must be greater than 0';
-      Assert.areEqual(expected, actual);
+      Assert.isTrue(actual.contains(expected), actual);
     }
   }
 
@@ -450,11 +450,11 @@ public with sharing class SBlueprintTest {
     try {
       SBlueprint newSBlueprint = sBluePrint.alias(alias, startAt, interval).times(times);
       Assert.fail('Exception should be thrown');
-    } catch (DmlException e) {
+    } catch (ApexBlueprintException e) {
       String actual = e.getMessage();
       System.debug(actual);
       String expected = 'interval must be greater than 0';
-      Assert.areEqual(expected, actual);
+      Assert.isTrue(actual.contains(expected), actual);
     }
   }
 

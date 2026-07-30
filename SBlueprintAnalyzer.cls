@@ -19,6 +19,8 @@
  * This class is responsible for executing the topological sort algorithm.
  */
 public with sharing class SBlueprintAnalyzer {
+  private static final String CLASS_NAME = 'SBlueprintAnalyzer';
+
   // =================================================================================
   // Properties
   // =================================================================================
@@ -142,7 +144,7 @@ public with sharing class SBlueprintAnalyzer {
    *
    * @param context The context containing initial roots and the pending list.
    * @return SOrchestrator.BuildLayers The fully resolved and ordered build layers.
-   * @throws DmlException if a circular reference is detected.
+   * @throws ApexBlueprintException if a circular reference is detected.
    */
   private SOrchestrator.BuildLayers resolveDependencies(AnalysisContext context) {
     SOrchestrator.BuildLayers buildLayers = new SOrchestrator.BuildLayers();
@@ -213,7 +215,10 @@ public with sharing class SBlueprintAnalyzer {
             new List<String>{ pending.getSBlueprint().getAlias(), String.join(dependencies, ', ') }
           );
         }
-        throw new DmlException(errorMessage);
+        String action = 'Check the listed dependencies for cycles and for aliases that are never defined (typos).';
+        ApexBlueprintException.invalidOperation(CLASS_NAME, 'resolveDependencies()', errorMessage)
+          .action(action)
+          .fire();
       }
     }
     return buildLayers;
@@ -229,7 +234,7 @@ public with sharing class SBlueprintAnalyzer {
    * @param parentBluePrint The parent SBlueprint.
    * @param childBluePrint The child SBlueprint.
    * @return The API name of the relationship field on the child object.
-   * @throws DmlException if no unique relationship field can be found.
+   * @throws ApexBlueprintException if no unique relationship field can be found.
    */
   private String inferParentField(SBlueprint parentBluePrint, SBlueprint childBluePrint) {
     String toParentField;
@@ -247,13 +252,17 @@ public with sharing class SBlueprintAnalyzer {
             'The child object has multiple parent relationships with the same parent object. object name: {0}, parent object name: {1}\nPlease specify the relationship name explicitly using the parentIdField() method.',
             new List<String>{ childSObjectName, parentObjectName }
           );
-          throw new DmlException(errorMessage);
+          ApexBlueprintException.invalidOperation(CLASS_NAME, 'inferParentField()', errorMessage).fire();
         }
         toParentField = childRelationship.getField().getDescribe().getName();
       }
     }
     if (toParentField == null) {
-      throw new DmlException('No parent relationship field found. Please specify parentIdField.');
+      String reason = 'No parent relationship field found between ' +
+        parentBluePrint.getRecordTypeName() + ' and ' + childBluePrint.getRecordTypeName() + '.';
+      ApexBlueprintException.invalidOperation(CLASS_NAME, 'inferParentField()', reason)
+        .action('Specify the lookup field explicitly with parentIdField().')
+        .fire();
     }
     return toParentField;
   }

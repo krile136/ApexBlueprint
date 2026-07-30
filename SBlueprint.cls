@@ -21,6 +21,8 @@
  * It is designed to be immutable; each configuration method returns a new SBlueprint instance.
  */
 public with sharing class SBlueprint {
+  private static final String CLASS_NAME = 'SBlueprint';
+
   @TestVisible
   private System.Type recordType;
   @TestVisible
@@ -65,14 +67,17 @@ public with sharing class SBlueprint {
    * Validates that the provided record type is a valid SObject type.
    *
    * @param recordType The System.Type to validate.
-   * @throws DmlException if recordType is null or not an SObject.
+   * @throws ApexBlueprintException if recordType is null or not an SObject.
    */
   private static void guard(System.Type recordType) {
+    String method = 'of(System.Type recordType)';
     if (recordType == null) {
-      throw new DmlException('RecordType must not be null');
+      ApexBlueprintException.required(CLASS_NAME, method, 'recordType', recordType).fire();
     }
     if (!(recordType.newInstance() instanceof SObject)) {
-      throw new DmlException('RecordType must be SObject type');
+      String reason = 'recordType is not an SObject type.';
+      String action = 'Pass a valid SObject class (e.g. Account.class, MyCustomObject__c.class).';
+      ApexBlueprintException.invalidArgument(CLASS_NAME, method, reason, action, 'recordType', recordType).fire();
     }
   }
 
@@ -100,9 +105,6 @@ public with sharing class SBlueprint {
    * @return A new SBlueprint instance with the updated configuration.
    */
   public SBlueprint set(String fieldName, Object value, Integer startAt) {
-    if (startAt <= 0) {
-      throw new DmlException('startAt must be greater than 0');
-    }
     return this.set(fieldName, value, startAt, 1);
   }
 
@@ -116,12 +118,8 @@ public with sharing class SBlueprint {
    * @return A new SBlueprint instance with the updated configuration.
    */
   public SBlueprint set(String fieldName, Object value, Integer startAt, Integer interval) {
-    if (interval <= 0) {
-      throw new DmlException('interval must be greater than 0');
-    }
-    if (startAt <= 0) {
-      throw new DmlException('startAt must be greater than 0');
-    }
+    String method = 'set(String fieldName, Object value, Integer startAt, Integer interval)';
+    this.guardSequence(method, startAt, interval);
     SBlueprint newSBlueprint = this.deepCopy();
     ValueDefinition valueDefinition = new ValueDefinition(value, startAt, interval);
     newSBlueprint.fieldValues.put(fieldName, valueDefinition);
@@ -181,21 +179,17 @@ public with sharing class SBlueprint {
    * @return A new SBlueprint instance with the added dependency.
    */
   public SBlueprint use(String alias, String fromField, String toField, Integer startAt, Integer interval) {
+    String method = 'use(String alias, String fromField, String toField, Integer startAt, Integer interval)';
     if (alias == null) {
-      throw new DmlException('alias must not be null');
+      ApexBlueprintException.required(CLASS_NAME, method, 'alias', alias).fire();
     }
     if (fromField == null) {
-      throw new DmlException('fromField must not be null');
+      ApexBlueprintException.required(CLASS_NAME, method, 'fromField', fromField).fire();
     }
     if (toField == null) {
-      throw new DmlException('toField must not be null');
+      ApexBlueprintException.required(CLASS_NAME, method, 'toField', toField).fire();
     }
-    if (startAt == null || startAt <= 0) {
-      throw new DmlException('startAt must be greater than 0');
-    }
-    if (interval == null || interval <= 0) {
-      throw new DmlException('interval must be greater than 0');
-    }
+    this.guardSequence(method, startAt, interval);
     SBlueprint newSBlueprint = this.deepCopy();
     Dependency dependency = new Dependency(alias, fromField, toField, startAt, interval);
     newSBlueprint.dependencies.add(dependency);
@@ -236,15 +230,11 @@ public with sharing class SBlueprint {
    * @return A new SBlueprint instance with the added ordering constraint.
    */
   public SBlueprint after(String alias, Integer startAt, Integer interval) {
+    String method = 'after(String alias, Integer startAt, Integer interval)';
     if (alias == null) {
-      throw new DmlException('alias must not be null');
+      ApexBlueprintException.required(CLASS_NAME, method, 'alias', alias).fire();
     }
-    if (startAt == null || startAt <= 0) {
-      throw new DmlException('startAt must be greater than 0');
-    }
-    if (interval == null || interval <= 0) {
-      throw new DmlException('interval must be greater than 0');
-    }
+    this.guardSequence(method, startAt, interval);
     SBlueprint newSBlueprint = this.deepCopy();
     Dependency dependency = new Dependency(alias, startAt, interval);
     newSBlueprint.dependencies.add(dependency);
@@ -281,15 +271,11 @@ public with sharing class SBlueprint {
    * @return A new SBlueprint instance with the alias defined.
    */
   public SBlueprint alias(String alias, Integer startAt, Integer interval) {
+    String method = 'alias(String alias, Integer startAt, Integer interval)';
     if (alias == null) {
-      throw new DmlException('alias must not be null');
+      ApexBlueprintException.required(CLASS_NAME, method, 'alias', alias).fire();
     }
-    if (interval <= 0) {
-      throw new DmlException('interval must be greater than 0');
-    }
-    if (startAt <= 0) {
-      throw new DmlException('startAt must be greater than 0');
-    }
+    this.guardSequence(method, startAt, interval);
     SBlueprint newSBlueprint = this.deepCopy();
     newSBlueprint.aliasDefinition = new AliasDefinition(alias, startAt, interval);
     return newSBlueprint;
@@ -302,8 +288,11 @@ public with sharing class SBlueprint {
    * @return A new SBlueprint instance with the specified number.
    */
   public SBlueprint times(Integer times) {
+    String method = 'times(Integer times)';
     if (times <= 0) {
-      throw new DmlException('Times must be greater than 0');
+      String reason = 'times must be greater than 0.';
+      String action = 'Pass a positive record count.';
+      ApexBlueprintException.invalidArgument(CLASS_NAME, method, reason, action, 'times', times).fire();
     }
     SBlueprint newSBlueprint = this.deepCopy();
     newSBlueprint.insertNumber = times;
@@ -317,8 +306,9 @@ public with sharing class SBlueprint {
    * @return A new SBlueprint instance with the child added.
    */
   public SBlueprint withChildren(SBlueprint child) {
+    String method = 'withChildren(SBlueprint child)';
     if (child == null) {
-      throw new DmlException('Child sBlueprint must not be null');
+      ApexBlueprintException.required(CLASS_NAME, method, 'child', child).fire();
     }
     SBlueprint newSBlueprint = this.deepCopy();
     newSBlueprint.children.add(child);
@@ -415,7 +405,8 @@ public with sharing class SBlueprint {
 
   public String getAlias() {
     if (this.aliasDefinition == null) {
-      throw new DmlException('Alias is not set');
+      String reason = 'Alias is not set on this blueprint.';
+      ApexBlueprintException.invalidOperation(CLASS_NAME, 'getAlias()', reason).fire();
     }
     return this.aliasDefinition.alias;
   }
@@ -483,6 +474,26 @@ public with sharing class SBlueprint {
   // =================================================================================
   // Private Helper Methods
   // =================================================================================
+
+  /**
+   * Validates the common startAt / interval sequence arguments.
+   *
+   * @param method The calling method signature (for error location).
+   * @param startAt The sequence starting number.
+   * @param interval The sequence interval.
+   */
+  private void guardSequence(String method, Integer startAt, Integer interval) {
+    if (startAt == null || startAt <= 0) {
+      String reason = 'startAt must be greater than 0.';
+      String action = 'Pass a positive sequence starting number.';
+      ApexBlueprintException.invalidArgument(CLASS_NAME, method, reason, action, 'startAt', startAt).fire();
+    }
+    if (interval == null || interval <= 0) {
+      String reason = 'interval must be greater than 0.';
+      String action = 'Pass a positive sequence interval.';
+      ApexBlueprintException.invalidArgument(CLASS_NAME, method, reason, action, 'interval', interval).fire();
+    }
+  }
 
   /**
    * Resolves a template value by replacing placeholders with the current sequence number.

@@ -850,8 +850,8 @@ public with sharing class SOrchestratorTest {
     try {
       SBlueprint.of(Account.class).after(null);
       Assert.fail();
-    } catch (DmlException e) {
-      Assert.isTrue(e.getMessage().contains('alias must not be null'));
+    } catch (ApexBlueprintException e) {
+      Assert.isTrue(e.getMessage().contains('The `alias` argument is required'), e.getMessage());
     }
   }
 
@@ -865,7 +865,7 @@ public with sharing class SOrchestratorTest {
     try {
       orchestrator.create();
       Assert.fail();
-    } catch (DmlException e) {
+    } catch (ApexBlueprintException e) {
       Assert.isTrue(e.getMessage().contains('Circular or invalid reference detected'));
     }
   }
@@ -880,7 +880,7 @@ public with sharing class SOrchestratorTest {
     try {
       orchestrator.create();
       Assert.fail();
-    } catch (DmlException e) {
+    } catch (ApexBlueprintException e) {
       Assert.isTrue(e.getMessage().contains('NoSuchField__c'), e.getMessage());
       Assert.isTrue(e.getMessage().contains('does not exist on Account'), e.getMessage());
       Assert.isTrue(e.getMessage().contains('acc'), e.getMessage());
@@ -897,7 +897,7 @@ public with sharing class SOrchestratorTest {
     try {
       orchestrator.create();
       Assert.fail();
-    } catch (DmlException e) {
+    } catch (ApexBlueprintException e) {
       Assert.isTrue(e.getMessage().contains('not createable'), e.getMessage());
       Assert.isTrue(e.getMessage().contains('opp'), e.getMessage());
     }
@@ -913,7 +913,7 @@ public with sharing class SOrchestratorTest {
     try {
       orchestrator.create();
       Assert.fail();
-    } catch (DmlException e) {
+    } catch (ApexBlueprintException e) {
       Assert.isTrue(e.getMessage().contains('auto number'), e.getMessage());
       Assert.isTrue(e.getMessage().contains('cs'), e.getMessage());
     }
@@ -929,7 +929,7 @@ public with sharing class SOrchestratorTest {
     try {
       orchestrator.create();
       Assert.fail();
-    } catch (DmlException e) {
+    } catch (ApexBlueprintException e) {
       Assert.isTrue(e.getMessage().contains('field type is'), e.getMessage());
       Assert.isTrue(e.getMessage().contains('not-a-number'), e.getMessage());
     }

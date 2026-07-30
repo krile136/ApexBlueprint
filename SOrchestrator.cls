@@ -19,6 +19,8 @@
  * It manages the analysis of dependencies, the ordering of creation, and the final DML operations.
  */
 public with sharing class SOrchestrator {
+  private static final String CLASS_NAME = 'SOrchestrator';
+
   // =================================================================================
   // Properties
   // =================================================================================
@@ -79,11 +81,11 @@ public with sharing class SOrchestrator {
    *
    * @param sBlueprint The blueprint to add.
    * @return A new SOrchestrator instance with the blueprint added.
-   * @throws DmlException if the provided sBlueprint is null.
+   * @throws ApexBlueprintException if the provided sBlueprint is null.
    */
   public SOrchestrator add(SBlueprint sBlueprint) {
     if (sBlueprint == null) {
-      throw new DmlException('sBlueprint must not be null');
+      ApexBlueprintException.required(CLASS_NAME, 'add(SBlueprint sBlueprint)', 'sBlueprint', sBlueprint).fire();
     }
     SOrchestrator newSOrchestrator = this.deepCopy();
     newSOrchestrator.sBlueprints.add(sBlueprint);
@@ -181,7 +183,7 @@ public with sharing class SOrchestrator {
               'Duplicate alias detected: {0}\nAliases must be unique across all SBlueprint definitions to ensure records can be correctly identified. Please provide a unique alias.',
               new List<String>{ alias }
             );
-            throw new DmlException(errorMessage);
+            ApexBlueprintException.invalidOperation(CLASS_NAME, 'realizeLayer()', errorMessage).fire();
           }
           layerAliasToSObject.put(alias, newAliasToSObject.get(alias));
         }
@@ -195,7 +197,7 @@ public with sharing class SOrchestrator {
             'Duplicate alias detected: {0}\nAliases must be unique across all SBlueprint definitions to ensure records can be correctly identified. Please provide a unique alias.',
             new List<String>{ alias }
           );
-          throw new DmlException(errorMessage);
+          ApexBlueprintException.invalidOperation(CLASS_NAME, 'realizeLayer()', errorMessage).fire();
         }
         aliasToSObject.put(alias, layerAliasToSObject.get(alias));
       }

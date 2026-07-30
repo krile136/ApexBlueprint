@@ -20,6 +20,8 @@
  * defined in SBlueprints, resolving aliases and dependencies along the way.
  */
 public with sharing class SBlueprintRealizer {
+  private static final String CLASS_NAME = 'SBlueprintRealizer';
+
   // =================================================================================
   // Properties
   // =================================================================================
@@ -123,7 +125,7 @@ public with sharing class SBlueprintRealizer {
             'Duplicate alias detected: {0}\nAliases must be unique across all SBlueprint definitions to ensure records can be correctly identified. Please provide a unique alias.',
             new List<String>{ childAlias }
           );
-          throw new DmlException(errorMessage);
+          ApexBlueprintException.invalidOperation(CLASS_NAME, 'realizeWithParentPlans()', errorMessage).fire();
         }
         newAliasToSObject.put(childAlias, childAliasToSObject.get(childAlias));
       }
@@ -155,9 +157,7 @@ public with sharing class SBlueprintRealizer {
           sobj.put(field, resolvedValue);
         } catch (Exception e) {
           // Diagnosis reflection runs only on this failure path — no happy-path overhead.
-          throw new DmlException(
-            this.buildFieldErrorMessage('set() / template()', sobj, field, resolvedValue, e)
-          );
+          this.fireFieldError('set() / template()', sobj, field, resolvedValue, e);
         }
       }
 
@@ -172,12 +172,17 @@ public with sharing class SBlueprintRealizer {
           .toString();
 
         if (!this.aliasToSObject.containsKey(resolvedDependencyAlias)) {
-          throw new DmlException(
-            'Alias \'' +
-              resolvedDependencyAlias +
-              '\' not found. Available aliases: ' +
-              String.join(aliasToSObject.keySet(), ', ')
-          );
+          String reason = 'Alias \'' + resolvedDependencyAlias + '\' not found. Available aliases: ' +
+            String.join(aliasToSObject.keySet(), ', ');
+          ApexBlueprintException.invalidArgument(
+              CLASS_NAME,
+              'realizeBase()',
+              reason,
+              'Check the alias for typos, or declare a blueprint with this alias.',
+              'alias',
+              resolvedDependencyAlias
+            )
+            .fire();
         }
 
         // Order-only dependency (declared via after()): the referenced record just has
@@ -191,28 +196,12 @@ public with sharing class SBlueprintRealizer {
         try {
           value = fromRecord.get(dependency.fromField);
         } catch (Exception e) {
-          throw new DmlException(
-            this.buildFieldErrorMessage(
-              'use(\'' + dependency.alias + '\', ...) fromField',
-              fromRecord,
-              dependency.fromField,
-              null,
-              e
-            )
-          );
+          this.fireFieldError('use(\'' + dependency.alias + '\', ...) fromField', fromRecord, dependency.fromField, null, e);
         }
         try {
           sobj.put(dependency.toField, value);
         } catch (Exception e) {
-          throw new DmlException(
-            this.buildFieldErrorMessage(
-              'use(\'' + dependency.alias + '\', ...) toField',
-              sobj,
-              dependency.toField,
-              value,
-              e
-            )
-          );
+          this.fireFieldError('use(\'' + dependency.alias + '\', ...) toField', sobj, dependency.toField, value, e);
         }
       }
 
@@ -231,7 +220,7 @@ public with sharing class SBlueprintRealizer {
           'Duplicate alias detected: {0}\nAliases must be unique across all SBlueprint definitions to ensure records can be correctly identified. Please provide a unique alias.',
           new List<String>{ resolvedCurrentAlias }
         );
-        throw new DmlException(errorMessage);
+        ApexBlueprintException.invalidOperation(CLASS_NAME, 'realizeBase()', errorMessage).fire();
       }
       newAliasToSObject.put(resolvedCurrentAlias, sobj);
     }
@@ -250,28 +239,31 @@ public with sharing class SBlueprintRealizer {
   private static Map<String, Map<String, Schema.SObjectField>> fieldMapCache = new Map<String, Map<String, Schema.SObjectField>>();
 
   /**
-   * Builds a detailed error message for a failed field access, using schema describe
-   * information to explain WHY the field could not be written (does not exist,
-   * formula, auto number, not createable, or type mismatch).
+   * Fires a detailed ApexBlueprintException for a failed field access, using schema
+   * describe information to explain WHY the field could not be written (does not
+   * exist, formula, auto number, not createable, or type mismatch).
    *
    * @param source Where the field name came from (set()/template()/use()).
    * @param record The SObject instance being built.
    * @param fieldName The field that failed.
    * @param value The value being written (null for read failures).
    * @param cause The original exception.
-   * @return The composed error message.
    */
-  private String buildFieldErrorMessage(String source, SObject record, String fieldName, Object value, Exception cause) {
+  private void fireFieldError(String source, SObject record, String fieldName, Object value, Exception cause) {
     Schema.SObjectType sObjectType = record.getSObjectType();
     String objectName = sObjectType.getDescribe().getName();
     String aliasLabel = this.sBluePrint.hasAlias() ? this.sBluePrint.getAlias() : '(no alias)';
 
-    String message =
+    String error =
       'Failed to apply field \'' + fieldName + '\' on ' + objectName +
-      ' (blueprint alias: \'' + aliasLabel + '\', from: ' + source + ').\n';
-    message += 'Reason: ' + this.diagnoseField(sObjectType, fieldName, value) + '\n';
-    message += 'Original error: ' + cause.getMessage();
-    return message;
+      ' (blueprint alias: \'' + aliasLabel + '\', from: ' + source + ').';
+    ApexBlueprintException.at(CLASS_NAME)
+      .method('realizeBase()')
+      .error(error)
+      .reason(this.diagnoseField(sObjectType, fieldName, value))
+      .param(fieldName, value)
+      .causedBy(cause)
+      .fire();
   }
 
   /**
