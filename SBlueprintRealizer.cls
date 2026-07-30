@@ -20,6 +20,8 @@
  * defined in SBlueprints, resolving aliases and dependencies along the way.
  */
 public with sharing class SBlueprintRealizer {
+  private static final String CLASS_NAME = 'SBlueprintRealizer';
+
   // =================================================================================
   // Properties
   // =================================================================================
@@ -123,7 +125,7 @@ public with sharing class SBlueprintRealizer {
             'Duplicate alias detected: {0}\nAliases must be unique across all SBlueprint definitions to ensure records can be correctly identified. Please provide a unique alias.',
             new List<String>{ childAlias }
           );
-          throw new DmlException(errorMessage);
+          ApexBlueprintException.invalidOperation(CLASS_NAME, 'realizeWithParentPlans()', errorMessage).fire();
         }
         newAliasToSObject.put(childAlias, childAliasToSObject.get(childAlias));
       }
@@ -151,7 +153,12 @@ public with sharing class SBlueprintRealizer {
           currentSequence,
           this.parentPositionToAlias
         );
-        sobj.put(field, resolvedValue);
+        try {
+          sobj.put(field, resolvedValue);
+        } catch (Exception e) {
+          // Diagnosis reflection runs only on this failure path — no happy-path overhead.
+          this.fireFieldError('set() / template()', sobj, field, resolvedValue, e);
+        }
       }
 
       // Resolve dependencies
@@ -165,17 +172,37 @@ public with sharing class SBlueprintRealizer {
           .toString();
 
         if (!this.aliasToSObject.containsKey(resolvedDependencyAlias)) {
-          throw new DmlException(
-            'Alias \'' +
-              resolvedDependencyAlias +
-              '\' not found. Available aliases: ' +
-              String.join(aliasToSObject.keySet(), ', ')
-          );
+          String reason = 'Alias \'' + resolvedDependencyAlias + '\' not found. Available aliases: ' +
+            String.join(aliasToSObject.keySet(), ', ');
+          ApexBlueprintException.invalidArgument(
+              CLASS_NAME,
+              'realizeBase()',
+              reason,
+              'Check the alias for typos, or declare a blueprint with this alias.',
+              'alias',
+              resolvedDependencyAlias
+            )
+            .fire();
+        }
+
+        // Order-only dependency (declared via after()): the referenced record just has
+        // to exist in an earlier layer. No value is copied.
+        if (dependency.orderOnly) {
+          continue;
         }
 
         SObject fromRecord = this.aliasToSObject.get(resolvedDependencyAlias);
-        Object value = fromRecord.get(dependency.fromField);
-        sobj.put(dependency.toField, value);
+        Object value;
+        try {
+          value = fromRecord.get(dependency.fromField);
+        } catch (Exception e) {
+          this.fireFieldError('use(\'' + dependency.alias + '\', ...) fromField', fromRecord, dependency.fromField, null, e);
+        }
+        try {
+          sobj.put(dependency.toField, value);
+        } catch (Exception e) {
+          this.fireFieldError('use(\'' + dependency.alias + '\', ...) toField', sobj, dependency.toField, value, e);
+        }
       }
 
       // Generate and assign the final alias for the new SObject
@@ -193,11 +220,100 @@ public with sharing class SBlueprintRealizer {
           'Duplicate alias detected: {0}\nAliases must be unique across all SBlueprint definitions to ensure records can be correctly identified. Please provide a unique alias.',
           new List<String>{ resolvedCurrentAlias }
         );
-        throw new DmlException(errorMessage);
+        ApexBlueprintException.invalidOperation(CLASS_NAME, 'realizeBase()', errorMessage).fire();
       }
       newAliasToSObject.put(resolvedCurrentAlias, sobj);
     }
     return newAliasToSObject;
+  }
+
+  // =================================================================================
+  // Error Diagnosis (runs only on the failure path)
+  // =================================================================================
+
+  /**
+   * Cache of field describe maps per SObject type name.
+   * Populated lazily and only when an error is being diagnosed, so the happy path
+   * never pays the describe cost.
+   */
+  private static Map<String, Map<String, Schema.SObjectField>> fieldMapCache = new Map<String, Map<String, Schema.SObjectField>>();
+
+  /**
+   * Fires a detailed ApexBlueprintException for a failed field access, using schema
+   * describe information to explain WHY the field could not be written (does not
+   * exist, formula, auto number, not createable, or type mismatch).
+   *
+   * @param source Where the field name came from (set()/template()/use()).
+   * @param record The SObject instance being built.
+   * @param fieldName The field that failed.
+   * @param value The value being written (null for read failures).
+   * @param cause The original exception.
+   */
+  private void fireFieldError(String source, SObject record, String fieldName, Object value, Exception cause) {
+    Schema.SObjectType sObjectType = record.getSObjectType();
+    String objectName = sObjectType.getDescribe().getName();
+    String aliasLabel = this.sBluePrint.hasAlias() ? this.sBluePrint.getAlias() : '(no alias)';
+
+    String error =
+      'Failed to apply field \'' + fieldName + '\' on ' + objectName +
+      ' (blueprint alias: \'' + aliasLabel + '\', from: ' + source + ').';
+    ApexBlueprintException.at(CLASS_NAME)
+      .method('realizeBase()')
+      .error(error)
+      .reason(this.diagnoseField(sObjectType, fieldName, value))
+      .param(fieldName, value)
+      .causedBy(cause)
+      .fire();
+  }
+
+  /**
+   * Diagnoses why a field access failed, based on the field's describe information.
+   *
+   * @param sObjectType The SObject type token.
+   * @param fieldName The field API name.
+   * @param value The value being written (may be null).
+   * @return A human-readable explanation with a suggested action.
+   */
+  private String diagnoseField(Schema.SObjectType sObjectType, String fieldName, Object value) {
+    Map<String, Schema.SObjectField> fieldMap = this.getFieldMap(sObjectType);
+    Schema.SObjectField field = fieldMap.get(fieldName.toLowerCase());
+
+    if (field == null) {
+      return 'The field does not exist on ' + sObjectType.getDescribe().getName() +
+        '. Check the API name for typos (custom fields need the __c suffix).';
+    }
+
+    Schema.DescribeFieldResult describe = field.getDescribe();
+    if (describe.isCalculated()) {
+      return 'The field is a formula field and cannot be written.' +
+        ' Remove it from the blueprint — its value is computed automatically after insert.';
+    }
+    if (describe.isAutoNumber()) {
+      return 'The field is an auto number field and cannot be written.' +
+        ' Remove it from the blueprint — its value is assigned automatically on insert.';
+    }
+    if (!describe.isCreateable()) {
+      return 'The field is not createable (system field or read-only for the running user).' +
+        ' Remove it from the blueprint or grant the required permission.';
+    }
+    return 'The value could not be assigned. The field type is ' + describe.getType().name() +
+      ', but the given value was \'' + String.valueOf(value) + '\'.' +
+      ' Check the value type (e.g. Date vs String, Decimal vs String).';
+  }
+
+  /**
+   * Returns the field map for an SObject type, using the static cache.
+   * Keys from fields.getMap() are already lowercase.
+   *
+   * @param sObjectType The SObject type token.
+   * @return A map of lowercase field API names to SObjectField tokens.
+   */
+  private Map<String, Schema.SObjectField> getFieldMap(Schema.SObjectType sObjectType) {
+    String objectName = sObjectType.getDescribe().getName();
+    if (!fieldMapCache.containsKey(objectName)) {
+      fieldMapCache.put(objectName, sObjectType.getDescribe().fields.getMap());
+    }
+    return fieldMapCache.get(objectName);
   }
 
   // =================================================================================
