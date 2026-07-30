@@ -37,6 +37,8 @@ public with sharing class SBlueprint {
   private List<Dependency> dependencies = new List<Dependency>();
   @TestVisible
   private List<SBlueprint> children = new List<SBlueprint>();
+  @TestVisible
+  private List<ShareDefinition> shares = new List<ShareDefinition>();
   private List<ParentBuildPlan> parentBuildPlans = new List<ParentBuildPlan>();
 
   // =================================================================================
@@ -316,6 +318,49 @@ public with sharing class SBlueprint {
   }
 
   /**
+   * Sets the record owner. Sugar for set('OwnerId', user.Id) that pairs with
+   * sharedWith() to declare "hostile" data for runAs audit tests: owned by an
+   * admin, with only minimal access shared to the persona under test.
+   *
+   * @param user The owner User (must have an Id).
+   * @return A new SBlueprint instance with the owner set.
+   */
+  public SBlueprint owner(User user) {
+    String method = 'owner(User user)';
+    if (user == null || user.Id == null) {
+      ApexBlueprintException.required(CLASS_NAME, method, 'user', user).fire();
+    }
+    return this.set('OwnerId', user.Id);
+  }
+
+  /**
+   * Declares a manual share as part of the record's final state. During create(),
+   * a sibling share blueprint (Foo__Share / AccountShare ...) is generated and
+   * inserted one layer after this record, with the parent Id wired automatically.
+   *
+   * "Who owns this record and who can see it" is part of the declared final
+   * state, exactly like field values — so it lives on the blueprint.
+   *
+   * @param user The user to share with (must have an Id).
+   * @param accessLevel 'Read' or 'Edit'.
+   * @return A new SBlueprint instance with the share declared.
+   */
+  public SBlueprint sharedWith(User user, String accessLevel) {
+    String method = 'sharedWith(User user, String accessLevel)';
+    if (user == null || user.Id == null) {
+      ApexBlueprintException.required(CLASS_NAME, method, 'user', user).fire();
+    }
+    if (accessLevel != 'Read' && accessLevel != 'Edit') {
+      String reason = 'accessLevel must be \'Read\' or \'Edit\'.';
+      String action = 'Pass \'Read\' or \'Edit\'. (\'All\' is owner-only and cannot be granted via a share record.)';
+      ApexBlueprintException.invalidArgument(CLASS_NAME, method, reason, action, 'accessLevel', accessLevel).fire();
+    }
+    SBlueprint newSBlueprint = this.deepCopy();
+    newSBlueprint.shares.add(new ShareDefinition(user.Id, accessLevel));
+    return newSBlueprint;
+  }
+
+  /**
    * Explicitly sets the parent relationship field for a child blueprint.
    * Use this when automatic inference fails or is ambiguous.
    *
@@ -349,6 +394,85 @@ public with sharing class SBlueprint {
    */
   private ParentBuildPlan generateParentBuildPlan() {
     return new ParentBuildPlan(this.aliasDefinition, this.insertNumber);
+  }
+
+  /**
+   * Checks whether any sharedWith() declarations exist on this blueprint.
+   *
+   * @return True if at least one share is declared.
+   */
+  public Boolean hasShares() {
+    return !this.shares.isEmpty();
+  }
+
+  /**
+   * Builds the sibling share blueprints for every sharedWith() declaration.
+   * Called by the analyzer after this blueprint's alias is ensured; the share
+   * blueprints depend on that alias via use(), so they land one layer later.
+   *
+   * @return The generated share SBlueprints (empty if no share is declared).
+   */
+  public List<SBlueprint> buildShareBlueprints() {
+    List<SBlueprint> shareBlueprints = new List<SBlueprint>();
+    if (this.shares.isEmpty()) {
+      return shareBlueprints;
+    }
+    String method = 'buildShareBlueprints()';
+
+    String objectName = this.getRecordTypeName();
+    Boolean isCustom = objectName.endsWith('__c');
+    String shareTypeName = deriveShareTypeName(objectName);
+    System.Type shareType = System.Type.forName(shareTypeName);
+    if (shareType == null) {
+      String reason = 'Share object \'' + shareTypeName + '\' was not found for ' + objectName + '.';
+      String action = 'Manual share rows only exist when the object\'s OWD is Private or Public Read Only,' +
+        ' and the object must support sharing. Check the org-wide default for ' + objectName + '.';
+      ApexBlueprintException.invalidOperation(CLASS_NAME, method, reason).action(action).fire();
+    }
+
+    String parentIdFieldName = isCustom ? 'ParentId' : objectName + 'Id';
+    String accessLevelFieldName = isCustom ? 'AccessLevel' : objectName + 'AccessLevel';
+
+    Object declaredOwnerId = this.fieldValues.containsKey('OwnerId') ? this.fieldValues.get('OwnerId').value : null;
+
+    Integer shareNumber = 0;
+    for (ShareDefinition share : this.shares) {
+      shareNumber++;
+      if (declaredOwnerId != null && share.userOrGroupId == (Id) declaredOwnerId) {
+        String reason = 'The share target is the declared owner. Salesforce rejects manual shares to the record owner.';
+        String action = 'Remove the redundant sharedWith() — the owner already has full access.';
+        ApexBlueprintException.invalidOperation(CLASS_NAME, method, reason).action(action).fire();
+      }
+
+      SBlueprint shareBlueprint = SBlueprint.of(shareType)
+        .set('UserOrGroupId', share.userOrGroupId)
+        .set(accessLevelFieldName, share.accessLevel)
+        .set('RowCause', 'Manual')
+        .use(this.getAlias(), 'Id', parentIdFieldName)
+        .alias(this.getAlias() + '__share_' + shareNumber)
+        .times(this.insertNumber);
+      // AccountShare additionally requires OpportunityAccessLevel on insert.
+      if (objectName == 'Account') {
+        shareBlueprint = shareBlueprint.set('OpportunityAccessLevel', 'None');
+      }
+      shareBlueprints.add(shareBlueprint);
+    }
+    return shareBlueprints;
+  }
+
+  /**
+   * Derives the share object API name for a given SObject API name.
+   * Custom: Foo__c -> Foo__Share. Standard: Account -> AccountShare.
+   *
+   * @param objectName The SObject API name.
+   * @return The share object API name.
+   */
+  @TestVisible
+  private static String deriveShareTypeName(String objectName) {
+    if (objectName.endsWith('__c')) {
+      return objectName.removeEnd('__c') + '__Share';
+    }
+    return objectName + 'Share';
   }
 
   /**
@@ -393,6 +517,7 @@ public with sharing class SBlueprint {
     copy.fieldValues = this.fieldValues == null ? new Map<String, ValueDefinition>() : this.fieldValues.clone();
     copy.dependencies = this.dependencies == null ? new List<Dependency>() : this.dependencies.clone();
     copy.children = this.children == null ? new List<SBlueprint>() : this.children.clone();
+    copy.shares = this.shares == null ? new List<ShareDefinition>() : this.shares.clone();
     copy.parentBuildPlans = this.parentBuildPlans == null
       ? new List<ParentBuildPlan>()
       : this.parentBuildPlans.clone();
@@ -617,6 +742,20 @@ public with sharing class SBlueprint {
       this.startAt = startAt;
       this.interval = interval;
       this.orderOnly = true;
+    }
+  }
+
+  /**
+   * Holds a manual share declaration added via sharedWith().
+   */
+  @TestVisible
+  public class ShareDefinition {
+    public Id userOrGroupId;
+    public String accessLevel;
+
+    public ShareDefinition(Id userOrGroupId, String accessLevel) {
+      this.userOrGroupId = userOrGroupId;
+      this.accessLevel = accessLevel;
     }
   }
 

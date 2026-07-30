@@ -76,6 +76,12 @@ public with sharing class SBlueprintAnalyzer {
         sBluePrint = sBluePrint.alias(newAlias);
       }
 
+      // Expand sharedWith() declarations into sibling share blueprints.
+      // They depend on this blueprint's alias, so they always resolve one layer later.
+      for (SBlueprint shareBlueprint : sBluePrint.buildShareBlueprints()) {
+        context.addPendingSBlueprint(new PendingBluePrint(shareBlueprint));
+      }
+
       // Recursively categorize children.
       for (SBlueprint child : sBluePrint.getChildren()) {
         child.setParentBuildPlans(sBluePrint);
@@ -120,6 +126,11 @@ public with sharing class SBlueprintAnalyzer {
       String newAlias = this.generateNewAlias(childBluePrint);
       newAlias = parentBluePrint.getAlias() + '_' + newAlias;
       childBluePrint = childBluePrint.alias(newAlias);
+    }
+
+    // Expand sharedWith() declarations on the child into sibling share blueprints.
+    for (SBlueprint shareBlueprint : childBluePrint.buildShareBlueprints()) {
+      context.addPendingSBlueprint(new PendingBluePrint(shareBlueprint));
     }
 
     // Continue the recursion for grandchildren.
