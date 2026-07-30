@@ -212,6 +212,25 @@ Covered diagnoses: field does not exist / formula field / auto number field / no
 
 > ⚠️ **Breaking change**: code that caught `DmlException` for framework validation errors (e.g. duplicate alias, circular reference, argument guards) must catch `ApexBlueprintException` instead. Real DML failures from the insert itself remain `DmlException`.
 
+### .owner(user) / .sharedWith(user, accessLevel)
+
+**Declares record ownership and manual shares as part of the record's final state** — the arrange step of runAs audit tests ("hostile" data: owned by an admin, with only minimal access shared to the persona under test).
+
+```apex
+User rep = SPersona.of('sales-rep').profile('Standard User').create();
+
+SOrchestrator.start()
+    .add(
+        SBlueprint.of(Invoice__c.class)
+            .alias('inv')
+            .sharedWith(rep, 'Read')   // generates a sibling Invoice__Share blueprint,
+    );                                 // wired to 'inv' and inserted one layer later
+```
+
+- Share object name, parent Id field, and access level field are derived automatically (custom `Foo__c` → `Foo__Share` with `ParentId`/`AccessLevel`; standard `Account` → `AccountShare` with `AccountId`/`AccountAccessLevel`, `OpportunityAccessLevel` defaulted to `None`). `RowCause` is `Manual`.
+- Fails fast with a clear error when the share object does not exist (OWD is Public — manual shares are impossible) or when the share target is the declared owner (Salesforce rejects it).
+- `.times(n)` on the shared blueprint generates one share row per record, and this composes with nesting: a `sharedWith()` on a child under a `times()`-multiplied parent (with `{P0}`/`{#}` aliases) multiplies along with the child — one share per generated child record.
+
 ### {P0} Placeholder
 
 A special placeholder to reference a parent's alias from within a child blueprint nested in `withChildren`.
