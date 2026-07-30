@@ -143,16 +143,18 @@ public with sharing class SPersonaTest {
 
   @isTest
   static void testCreate_WhenMixedWithRegularDml_ThenNoMixedDmlError() {
-    // Arrange - regular-object DML in the same transaction as persona creation
-    insert new Account(Name = 'Before Persona');
+    // Arrange - regular-object DML in the same transaction as persona creation.
+    // Document is used as the regular object because it supports no triggers or
+    // validation rules — the insert can never be broken by org customization.
+    insert new Document(Name = 'Before Persona', FolderId = UserInfo.getUserId());
 
     // Act - would throw MIXED_DML_OPERATION without the internal runAs wrap
     User persona = SPersona.of('rep').profile(currentProfileName()).create();
-    insert new Account(Name = 'After Persona');
+    insert new Document(Name = 'After Persona', FolderId = UserInfo.getUserId());
 
     // Assert
     Assert.isNotNull(persona.Id);
-    Assert.areEqual(2, [SELECT COUNT() FROM Account WHERE Name LIKE '%Persona']);
+    Assert.areEqual(2, [SELECT COUNT() FROM Document WHERE Name LIKE '%Persona']);
   }
 
   @isTest
