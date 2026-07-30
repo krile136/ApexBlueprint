@@ -203,6 +203,55 @@ public with sharing class SBlueprint {
   }
 
   /**
+   * Defines an order-only dependency on another aliased blueprint.
+   *
+   * Unlike `use()`, no value is copied — the referenced blueprint is only guaranteed
+   * to be inserted in an earlier layer. Use this when trigger side effects require
+   * a specific insert order between records that have no field-level relationship.
+   *
+   * @param alias The alias of the blueprint that must be inserted first.
+   * @return A new SBlueprint instance with the added ordering constraint.
+   */
+  public SBlueprint after(String alias) {
+    return this.after(alias, 1, 1);
+  }
+
+  /**
+   * Defines an order-only dependency with a sequence starting number.
+   *
+   * @param alias The alias of the blueprint that must be inserted first (may contain sequence placeholders).
+   * @param startAt The starting number for the sequence in the alias.
+   * @return A new SBlueprint instance with the added ordering constraint.
+   */
+  public SBlueprint after(String alias, Integer startAt) {
+    return this.after(alias, startAt, 1);
+  }
+
+  /**
+   * Defines an order-only dependency with sequence starting number and interval.
+   *
+   * @param alias The alias of the blueprint that must be inserted first.
+   * @param startAt The starting number for the sequence.
+   * @param interval The interval for the sequence.
+   * @return A new SBlueprint instance with the added ordering constraint.
+   */
+  public SBlueprint after(String alias, Integer startAt, Integer interval) {
+    if (alias == null) {
+      throw new DmlException('alias must not be null');
+    }
+    if (startAt == null || startAt <= 0) {
+      throw new DmlException('startAt must be greater than 0');
+    }
+    if (interval == null || interval <= 0) {
+      throw new DmlException('interval must be greater than 0');
+    }
+    SBlueprint newSBlueprint = this.deepCopy();
+    Dependency dependency = new Dependency(alias, startAt, interval);
+    newSBlueprint.dependencies.add(dependency);
+    return newSBlueprint;
+  }
+
+  /**
    * Assigns an alias to this blueprint.
    *
    * @param alias The alias name, which can contain sequence placeholders.
@@ -538,6 +587,7 @@ public with sharing class SBlueprint {
     public String toField;
     public Integer startAt;
     public Integer interval;
+    public Boolean orderOnly = false;
 
     public Dependency(String alias, String fromField, String toField, Integer startAt, Integer interval) {
       this.alias = alias;
@@ -545,6 +595,17 @@ public with sharing class SBlueprint {
       this.toField = toField;
       this.startAt = startAt;
       this.interval = interval;
+    }
+
+    /**
+     * Constructor for an order-only dependency (created via `after()`).
+     * No value is copied; the referenced alias only constrains the insert order.
+     */
+    public Dependency(String alias, Integer startAt, Integer interval) {
+      this.alias = alias;
+      this.startAt = startAt;
+      this.interval = interval;
+      this.orderOnly = true;
     }
   }
 

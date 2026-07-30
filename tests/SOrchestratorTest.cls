@@ -791,6 +791,151 @@ public with sharing class SOrchestratorTest {
   }
 
   @isTest
+  static void testCreate_WhenAfterDeclared_ThenInsertedInLaterLayer() {
+    // Arrange - the dependent blueprint is added FIRST to prove ordering comes from after(), not add order
+    SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
+      .add(SBlueprint.of(Account.class).set('Name', 'Second').alias('second').after('first'))
+      .add(SBlueprint.of(Account.class).set('Name', 'First').alias('first'));
+
+    // Act
+    orchestrator.create();
+
+    // Assert - MockDmlOperator assigns sequential ids across layers, so a later layer means a greater id
+    Account first = (Account) orchestrator.getByAlias('first');
+    Account second = (Account) orchestrator.getByAlias('second');
+    Assert.isNotNull(first.Id);
+    Assert.isNotNull(second.Id);
+    Assert.isTrue(String.valueOf(first.Id) < String.valueOf(second.Id), 'after() must place the dependent in a later layer');
+  }
+
+  @isTest
+  static void testCreate_WhenAfterGroupAlias_ThenInsertedAfterWholeGroup() {
+    // Arrange - after() accepts the same {#} pattern as use()
+    SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
+      .add(SBlueprint.of(Account.class).set('Name', 'Grp-{#}').alias('grp_{#}').times(2))
+      .add(SBlueprint.of(Account.class).set('Name', 'Late').alias('late').after('grp_{#}'));
+
+    // Act
+    orchestrator.create();
+
+    // Assert
+    Account late = (Account) orchestrator.getByAlias('late');
+    Assert.isTrue(String.valueOf(orchestrator.getByAlias('grp_1').Id) < String.valueOf(late.Id));
+    Assert.isTrue(String.valueOf(orchestrator.getByAlias('grp_2').Id) < String.valueOf(late.Id));
+  }
+
+  @isTest
+  static void testCreate_WhenAfterCombinedWithUse_ThenBothConstraintsHold() {
+    // Arrange - C copies a value from A and must also come after B (no field relation to B)
+    SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
+      .add(SBlueprint.of(Contact.class).set('LastName', 'C').alias('c').use('a', 'Id', 'AccountId').after('b'))
+      .add(SBlueprint.of(Account.class).set('Name', 'A').alias('a'))
+      .add(SBlueprint.of(Account.class).set('Name', 'B').alias('b'));
+
+    // Act
+    orchestrator.create();
+
+    // Assert - value copied from A, and C inserted after B
+    // (compare the sequential part of the mock ids: chars 3-14, skipping the key prefix)
+    Contact c = (Contact) orchestrator.getByAlias('c');
+    Assert.areEqual(orchestrator.getByAlias('a').Id, c.AccountId);
+    String bSeq = String.valueOf(orchestrator.getByAlias('b').Id).substring(3, 15);
+    String cSeq = String.valueOf(c.Id).substring(3, 15);
+    Assert.isTrue(bSeq < cSeq, 'C (seq ' + cSeq + ') must be inserted after B (seq ' + bSeq + ')');
+  }
+
+  @isTest
+  static void testAfter_WhenAliasIsNull_ThenThrowException() {
+    // Act / Assert
+    try {
+      SBlueprint.of(Account.class).after(null);
+      Assert.fail();
+    } catch (DmlException e) {
+      Assert.isTrue(e.getMessage().contains('alias must not be null'));
+    }
+  }
+
+  @isTest
+  static void testCreate_WhenAfterUnknownAlias_ThenThrowCircularReferenceException() {
+    // Arrange
+    SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
+      .add(SBlueprint.of(Account.class).set('Name', 'A').alias('a').after('nonexistent'));
+
+    // Act / Assert
+    try {
+      orchestrator.create();
+      Assert.fail();
+    } catch (DmlException e) {
+      Assert.isTrue(e.getMessage().contains('Circular or invalid reference detected'));
+    }
+  }
+
+  @isTest
+  static void testCreate_WhenFieldDoesNotExist_ThenErrorExplainsIt() {
+    // Arrange
+    SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
+      .add(SBlueprint.of(Account.class).set('NoSuchField__c', 'x').alias('acc'));
+
+    // Act / Assert
+    try {
+      orchestrator.create();
+      Assert.fail();
+    } catch (DmlException e) {
+      Assert.isTrue(e.getMessage().contains('NoSuchField__c'), e.getMessage());
+      Assert.isTrue(e.getMessage().contains('does not exist on Account'), e.getMessage());
+      Assert.isTrue(e.getMessage().contains('acc'), e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testCreate_WhenFieldIsNotCreateable_ThenErrorExplainsIt() {
+    // Arrange - Opportunity.ExpectedRevenue is a standard non-createable field
+    SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
+      .add(SBlueprint.of(Opportunity.class).set('ExpectedRevenue', 100).alias('opp'));
+
+    // Act / Assert
+    try {
+      orchestrator.create();
+      Assert.fail();
+    } catch (DmlException e) {
+      Assert.isTrue(e.getMessage().contains('not createable'), e.getMessage());
+      Assert.isTrue(e.getMessage().contains('opp'), e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testCreate_WhenFieldIsAutoNumber_ThenErrorExplainsIt() {
+    // Arrange - Case.CaseNumber is a standard auto number field
+    SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
+      .add(SBlueprint.of(Case.class).set('CaseNumber', '00001').alias('cs'));
+
+    // Act / Assert
+    try {
+      orchestrator.create();
+      Assert.fail();
+    } catch (DmlException e) {
+      Assert.isTrue(e.getMessage().contains('auto number'), e.getMessage());
+      Assert.isTrue(e.getMessage().contains('cs'), e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testCreate_WhenValueTypeMismatch_ThenErrorExplainsFieldType() {
+    // Arrange
+    SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())
+      .add(SBlueprint.of(Account.class).set('NumberOfEmployees', 'not-a-number').alias('acc'));
+
+    // Act / Assert
+    try {
+      orchestrator.create();
+      Assert.fail();
+    } catch (DmlException e) {
+      Assert.isTrue(e.getMessage().contains('field type is'), e.getMessage());
+      Assert.isTrue(e.getMessage().contains('not-a-number'), e.getMessage());
+    }
+  }
+
+  @isTest
   static void testCreate_WhenAmbiousRelationship_ThenThrowException() {
     // Arrange
     SOrchestrator orchestrator = SOrchestrator.start(new MockDmlOperator())

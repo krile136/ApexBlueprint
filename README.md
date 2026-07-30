@@ -178,6 +178,31 @@ SBlueprint.of(QuoteLineItem.class)
     .use('prod', 'Id', 'PricebookEntryId');
 ```
 
+### .after(alias)
+
+**Declares an order-only dependency: this record is inserted in a later layer than the referenced alias, without copying any value.** Use this when trigger side effects require a specific insert order between records that have no field-level relationship (where `.use()` would be unnatural).
+
+```apex
+// 'settings' is inserted first, then 'order' — even though no field connects them
+SOrchestrator.start()
+    .add(SBlueprint.of(OrderSetting__c.class).alias('settings'))
+    .add(SBlueprint.of(Order__c.class).set('Name', 'Order-1').after('settings'));
+```
+
+The same `{#}` sequence placeholders (and `startAt` / `interval` overloads) as `.use()` are supported, so you can order a record after a whole `.times(n)` group: `.after('grp_{#}')`.
+
+### Detailed field error messages
+
+When a field value cannot be applied during `create()`, the error now explains **why**, using schema describe information — resolved lazily on the failure path only, so there is no overhead when everything succeeds:
+
+```
+Failed to apply field 'ExpectedRevenue' on Opportunity (blueprint alias: 'opp', from: set() / template()).
+Reason: The field is not createable (system field or read-only for the running user). Remove it from the blueprint or grant the required permission.
+Original error: ...
+```
+
+Covered diagnoses: field does not exist / formula field / auto number field / not createable / value type mismatch (with the expected field type).
+
 ### {P0} Placeholder
 
 A special placeholder to reference a parent's alias from within a child blueprint nested in `withChildren`.
