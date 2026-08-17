@@ -1,255 +1,40 @@
 # ApexBlueprint
 
-[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-
 **A declarative test data builder that revolutionizes test data creation in Salesforce.**
 
-It fundamentally solves the problems of poor readability and difficult maintenance inherent in traditional, procedural test data factories, elevating your test code into "**executable specifications.**"
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-## 😩 The Problem: Limitations of Test Data Factories
+📚 **Documentation: [krileworks.com](https://krileworks.com/apex-stem/docs/apex-blueprint-guide)** — guides, API reference, and design deep-dives all live there.
+(日本語ドキュメント: [https://krileworks.com/ja/apex-stem/docs/apex-blueprint-guide](https://krileworks.com/ja/apex-stem/docs/apex-blueprint-guide))
 
-While the traditional TestDataFactory is a best practice adopted in many Salesforce projects, it suffers from structural challenges.
+ApexBlueprint is part of [**Apex Stem**](https://krileworks.com/apex-stem), a set of independent, dependency-free Salesforce Apex frameworks.
 
-### 🕸️ The Trap of Common Scenario Patterns 🕸️
+## Installation
 
-This is the approach of creating a convenient method (e.g., `createFullScenario()`) that builds a frequently used set of data, like an Account with its Opportunities, Quotes, and Quote Items, all at once.
+### A) Unlocked Package (recommended)
 
-- Drawbacks:
-    - Poor Visibility: You can't tell what's being created or with what values just by reading the test code; you have to go inspect the factory's implementation every time.
-    - Lack of Flexibility: For a minor change, like "I just want to change the Opportunity's stage this time," you either have to add a new method (createFullScenarioForClosedWon()) or take the extra step of updating the data after it's been created.
-    - Wasteful: It often creates unnecessary records not required for the test, slowing down test execution.
-
-### 😥 The Pain of Individual Object Creation Patterns 
-
-This is the approach of providing separate methods for each object, like createAccount() and createOpportunity(acc.Id).
-
-- Drawbacks:
-    - High Cognitive Load: It results in an "ID bucket brigade" where you must manually pass the ID of a parent record to the next method, making the code verbose and hard to read.
-    - Poor Maintainability: To handle slightly different field values, you must add new methods, update the object after creation, or use flag arguments, all of which hinder continuous development.
-    - Obscures the Overall Scenario: The test code becomes a sequence of imperative commands ("create this," "then create that"), making it difficult to grasp the final data structure at a glance.
-
-
-In all of these conventional patterns, you describe the insertion (and updates) procedurally. This makes it difficult to see what kind of data structure is being created, and ultimately, hard to understand what test data you've prepared.
-
-## 💡 What ApexBlueprint Solves
-
-ApexBlueprint solves these issues with the concept of a "**Blueprint.**"
-
-You no longer need to write the **procedure** of "how to create records." Instead, you simply **declare the final state** of "what data you want."
-
-All the tedious work, like the insertion order of records and passing IDs, is automatically handled by the framework (`SOrchestrator`). This makes your test code clean, maintainable, and understandable to anyone.
-
-### ✨ Key Features
-- **Declarative API**
-    Intuitively define blueprints with a fluent syntax like `SBlueprint.of(...).set(...)`.
-
-- **Visual Hierarchy**
-    By using the `withChildren` method, the code's indentation directly represents the data's parent-child relationships, making relations instantly clear.
-
-- **Automatic Dependency Resolution**
-    Based on the dependencies defined with `.use()` and the parent-child relationships from `.withChildren()`, the framework's topological sort algorithm automatically determines the optimal insertion order. No more worrying about the order of `insert` statements.
-
-- **Flexible Customization**
-    Reuse basic settings with `template` while safely overriding only the necessary fields for a specific test with `.set()`. You will no longer suffer from "flag hell" or a proliferation of methods.
-
-- **Powerful Bulk Generation**
-    Combine the `.times()` method with sequence placeholders (`{#}`, `{A}`, `{a}`, etc.) to describe complex data sets like one-to-many or many-to-many with surprising simplicity.
-
-## 📦 Installation
-
-Add `ApexBlueprint` to your project using `git submodule`.
 ```bash
-$ cd force-app/main/default/classes
-$ git submodule add https://github.com/krile136/ApexBlueprint.git ApexBlueprint
+sf package install -p 04tgK000000HaIPQA0 -o <your-org> -w 10
 ```
 
-One Command Deployment!
-A `Makefile` is provided, so you can deploy all necessary classes to your org with a single command.
+Or install from the browser:
+
+- Production / Developer Edition: `https://login.salesforce.com/packaging/installPackage.apexp?p0=04tgK000000HaIPQA0`
+- Sandbox: `https://test.salesforce.com/packaging/installPackage.apexp?p0=04tgK000000HaIPQA0`
+
+Current version: **v2.0.1** (`04tgK000000HaIPQA0`). Install IDs for every release are listed on the [Releases](https://github.com/krile136/ApexBlueprint/releases) page.
+
+Why the package: tests inside an installed unlocked package are **excluded from `RunLocalTests`**, and its code is **excluded from your org's coverage calculation** — your deploys stay fast and unaffected by this framework's test suite.
+
+### B) Git Submodule
+
 ```bash
-$ make install
+git submodule add https://github.com/krile136/ApexBlueprint.git force-app/main/default/classes/ApexBlueprint
+git submodule update --init --recursive
 ```
 
-## 🚀 Quick Start
+`sf project deploy start -d force-app/main/default/classes/ApexBlueprint` deploys it like any source folder. A Makefile is also included for direct installs (`make install`).
 
-Here is the most basic example of creating one `Account` and one related `Contact`.
-```apex
-// Arrange
-SOrchestrator orchestrator = SOrchestrator.start()
-    .add(
-        SBlueprint.of(Account.class)
-            .set('Name', 'Test Account')
-            .alias('acc') // Set an alias
-            .withChildren(
-                SBlueprint.of(Contact.class)
-                    .set('LastName', 'Test Contact')
-                    .alias('con')
-            )
-    );
+## License
 
-// Act
-orchestrator.create();
-
-// Assert
-// Access in-memory results without SOQL
-Account acc = (Account) orchestrator.getByAlias('acc');
-Contact con = (Contact) orchestrator.getByAlias('con');
-
-Assert.areEqual('Test Account', acc.Name);
-Assert.isNotNull(acc.Id);
-Assert.areEqual(acc.Id, con.AccountId);
-```
-
-## 📖 Core Features
-
-### SBlueprint.of(SObject.class)
-
-Every blueprint begins with this static method.
-```apex
-SBlueprint accBp = SBlueprint.of(Account.class);
-```
-### .set(fieldName, value)
-
-Sets a value for a specific field. Due to the immutable design, it always returns a new `SBlueprint` instance.
-```apex
-SBlueprint accBp = SBlueprint.of(Account.class)
-    .set('Name', 'ACME Inc.')
-    .set('Industry', 'Technology');
-```
-
-### .template(templateMap)
-
-Loads a set of commonly used field values as a "template." Defining templates as static methods in a separate class enhances reusability. Values can be overridden later with `.set()`.
-```apex
-// AccountBlueprint.cls (created by the user)
-public class AccountBlueprint {
-    public static Map<String, Object> basic() {
-        return new Map<String, Object>{
-            'Industry' => 'Technology',
-            'Type' => 'Prospect'
-        };
-    }
-}
-
-// Usage in test code
-SBlueprint.of(Account.class)
-    .template(AccountBlueprint.basic()) // Load basic settings
-    .set('Name', 'ACME Inc.'); // Set a value specific to this test
-```
-
-### .alias(aliasName)
-
-Assigns a name (alias) to the created record so you can access it later.
-```apex
-.alias('myAccount');
-```
-
-### .times(count)
-
-Generates a specified number of records from the same blueprint. You can use sequence placeholders in aliases and `.set()` values.
-- `{#}`: Numeric sequence (1, 2, 3...)
-- `{A}`: Uppercase alphabetic sequence (A, B, C...)
-- `{a}`: Lowercase alphabetic sequence (a, b, c...)
-
-```apex
-// Create 3 Accounts
-SBlueprint.of(Account.class)
-    .times(3)
-    .alias('acc_{#}') // acc_1, acc_2, acc_3
-    .set('Name', 'Test Account {A}') // Test Account A,Test Account B, Test Account C 
-    .set('BillingCity', 'City {a}'); // City a, City b, City c 
-```
-
-### .withChildren(childBlueprint)
-
-Defines a parent-child relationship. If you don't specify a `parentIdField`, the framework will infer the relationship automatically.
-```apex
-SBlueprint.of(Account.class)
-    .withChildren(
-        SBlueprint.of(Contact.class) // AccountId is set automatically
-    );
-```
-
-### .use(alias, fromField, toField)
-
-**Allows you to set a field on your record using a value from another aliased object's field.** This is useful for defining dependencies other than parent-child relationships that cannot be expressed with `withChildren`.
-```apex
-// Set the PricebookEntryId on a QuoteItem using the Id from a Product2 with the alias 'prod'
-SBlueprint.of(QuoteLineItem.class)
-    .use('prod', 'Id', 'PricebookEntryId');
-```
-
-### .after(alias)
-
-**Declares an order-only dependency: this record is inserted in a later layer than the referenced alias, without copying any value.** Use this when trigger side effects require a specific insert order between records that have no field-level relationship (where `.use()` would be unnatural).
-
-```apex
-// 'settings' is inserted first, then 'order' — even though no field connects them
-SOrchestrator.start()
-    .add(SBlueprint.of(OrderSetting__c.class).alias('settings'))
-    .add(SBlueprint.of(Order__c.class).set('Name', 'Order-1').after('settings'));
-```
-
-The same `{#}` sequence placeholders (and `startAt` / `interval` overloads) as `.use()` are supported, so you can order a record after a whole `.times(n)` group: `.after('grp_{#}')`.
-
-### ApexBlueprintException & detailed field error messages
-
-All framework validation errors are thrown as **`ApexBlueprintException`** (previously a bare `DmlException`). This cleanly separates the two failure classes during `create()`:
-
-- `ApexBlueprintException` — your blueprint declaration is wrong (fix the test code)
-- `DmlException` — the org rejected the actual insert (fix the template or the org config)
-
-When a field value cannot be applied, the error explains **why**, using schema describe information — resolved lazily on the failure path only, so there is no overhead when everything succeeds:
-
-```
-====== APEX BLUEPRINT EXCEPTION ======
-Location: SBlueprintRealizer.realizeBase()
-Error   : Failed to apply field 'ExpectedRevenue' on Opportunity (blueprint alias: 'opp', from: set() / template()).
-Reason  : The field is not createable (system field or read-only for the running user). Remove it from the blueprint or grant the required permission.
-Provided: [ExpectedRevenue => 100]
-```
-
-Covered diagnoses: field does not exist / formula field / auto number field / not createable / value type mismatch (with the expected field type).
-
-> ⚠️ **Breaking change**: code that caught `DmlException` for framework validation errors (e.g. duplicate alias, circular reference, argument guards) must catch `ApexBlueprintException` instead. Real DML failures from the insert itself remain `DmlException`.
-
-### .owner(user) / .sharedWith(user, accessLevel)
-
-**Declares record ownership and manual shares as part of the record's final state** — the arrange step of runAs audit tests ("hostile" data: owned by an admin, with only minimal access shared to the persona under test).
-
-```apex
-User rep = SPersona.of('sales-rep').profile('Standard User').create();
-
-SOrchestrator.start()
-    .add(
-        SBlueprint.of(Invoice__c.class)
-            .alias('inv')
-            .sharedWith(rep, 'Read')   // generates a sibling Invoice__Share blueprint,
-    );                                 // wired to 'inv' and inserted one layer later
-```
-
-- Share object name, parent Id field, and access level field are derived automatically (custom `Foo__c` → `Foo__Share` with `ParentId`/`AccessLevel`; standard `Account` → `AccountShare` with `AccountId`/`AccountAccessLevel`, `OpportunityAccessLevel` defaulted to `None`). `RowCause` is `Manual`.
-- Fails fast with a clear error when the share object does not exist (OWD is Public — manual shares are impossible) or when the share target is the declared owner (Salesforce rejects it).
-- `.times(n)` on the shared blueprint generates one share row per record, and this composes with nesting: a `sharedWith()` on a child under a `times()`-multiplied parent (with `{P0}`/`{#}` aliases) multiplies along with the child — one share per generated child record.
-
-### {P0} Placeholder
-
-A special placeholder to reference a parent's alias from within a child blueprint nested in `withChildren`.
-- `{P0}`: The root parent (layer 0)
-- `{P1}`: The parent at layer 1
-- `{Px}`: The parent at layer x
-
-```apex
-// Set the child (Contact) LastName to the parent (Account) Name
-SBlueprint.of(Account.class)
-    .set('Name', 'Parent Name')
-    .withChildren(
-        SBlueprint.of(Contact.class)
-            .use('{P0}', 'Name', 'LastName')
-    );
-```
-
-I believe that `ApexBlueprint` will help make your test code cleaner and more maintainable.
-
-More detailed usage, advanced use cases, and the design philosophy will be posted on the official website, which is currently under construction. Please stay tuned!
-
-[KrileWorks.com](https://krileworks.com/)
+Apache License 2.0 — see [LICENSE](LICENSE).

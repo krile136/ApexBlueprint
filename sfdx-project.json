@@ -1,0 +1,20 @@
+{
+  "packageDirectories": [
+    {
+      "versionName": "v2.0.1",
+      "versionNumber": "2.0.1.NEXT",
+      "path": ".",
+      "default": true,
+      "package": "ApexBlueprint",
+      "versionDescription": ""
+    }
+  ],
+  "name": "ApexBlueprint",
+  "namespace": "",
+  "sfdcLoginUrl": "https://login.salesforce.com",
+  "sourceApiVersion": "64.0",
+  "packageAliases": {
+    "ApexBlueprint": "0HogK0000004CAfSAM",
+    "ApexBlueprint@2.0.1-1": "04tgK000000HaIPQA0"
+  }
+}
