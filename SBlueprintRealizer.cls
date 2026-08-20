@@ -18,6 +18,7 @@
  * Realizes SBlueprint definitions into SObject instances.
  * This class is responsible for the recursive creation of records based on parent-child relationships
  * defined in SBlueprints, resolving aliases and dependencies along the way.
+ * @directory ApexBlueprint
  */
 public with sharing class SBlueprintRealizer {
   private static final String CLASS_NAME = 'SBlueprintRealizer';

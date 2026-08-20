@@ -17,6 +17,7 @@
 /**
  * Analyzes a list of SBlueprints to resolve dependencies and determine the build order.
  * This class is responsible for executing the topological sort algorithm.
+ * @directory ApexBlueprint
  */
 public with sharing class SBlueprintAnalyzer {
   private static final String CLASS_NAME = 'SBlueprintAnalyzer';

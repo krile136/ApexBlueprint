@@ -17,6 +17,7 @@
 /**
  * The main orchestrator for building and creating test data from a collection of SBlueprints.
  * It manages the analysis of dependencies, the ordering of creation, and the final DML operations.
+ * @directory ApexBlueprint
  */
 public with sharing class SOrchestrator {
   private static final String CLASS_NAME = 'SOrchestrator';
