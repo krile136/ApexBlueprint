@@ -14,15 +14,15 @@ ApexBlueprint is part of [**Apex Stem**](https://krileworks.com/apex-stem), a se
 ### A) Unlocked Package (recommended)
 
 ```bash
-sf package install -p 04tgK000000HaIPQA0 -o <your-org> -w 10
+sf package install -p 04tgK000000HuDtQAK -o <your-org> -w 10
 ```
 
 Or install from the browser:
 
-- Production / Developer Edition: `https://login.salesforce.com/packaging/installPackage.apexp?p0=04tgK000000HaIPQA0`
-- Sandbox: `https://test.salesforce.com/packaging/installPackage.apexp?p0=04tgK000000HaIPQA0`
+- Production / Developer Edition: `https://login.salesforce.com/packaging/installPackage.apexp?p0=04tgK000000HuDtQAK`
+- Sandbox: `https://test.salesforce.com/packaging/installPackage.apexp?p0=04tgK000000HuDtQAK`
 
-Current version: **v2.0.1** (`04tgK000000HaIPQA0`). Install IDs for every release are listed on the [Releases](https://github.com/krile136/ApexBlueprint/releases) page.
+Current version: **v2.1.0** (`04tgK000000HuDtQAK`). Install IDs for every release are listed on the [Releases](https://github.com/krile136/ApexBlueprint/releases) page.
 
 Why the package: tests inside an installed unlocked package are **excluded from `RunLocalTests`**, and its code is **excluded from your org's coverage calculation** — your deploys stay fast and unaffected by this framework's test suite.
 
