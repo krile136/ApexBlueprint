@@ -1,3 +1,6 @@
+/**
+ * @directory ApexBlueprint/tests
+ */
 @isTest
 public with sharing class ApexBlueprintExceptionTest {
   @isTest

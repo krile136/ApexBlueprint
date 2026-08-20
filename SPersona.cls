@@ -40,6 +40,7 @@
  * Locale-related defaults are taken from the running user (overridable via set()).
  * This class is test-context only: create() relies on System.runAs.
  * Like SBlueprint, the builder is immutable — each method returns a new instance.
+ * @directory ApexBlueprint
  */
 public with sharing class SPersona {
   private static final String CLASS_NAME = 'SPersona';

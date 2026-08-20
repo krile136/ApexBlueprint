@@ -19,6 +19,7 @@
  * This class uses a fluent interface to define the properties of records to be created,
  * including field values, aliases, dependencies, and hierarchical relationships.
  * It is designed to be immutable; each configuration method returns a new SBlueprint instance.
+ * @directory ApexBlueprint
  */
 public with sharing class SBlueprint {
   private static final String CLASS_NAME = 'SBlueprint';
