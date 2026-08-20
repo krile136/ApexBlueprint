@@ -15,6 +15,7 @@
   "sourceApiVersion": "64.0",
   "packageAliases": {
     "ApexBlueprint": "0HogK0000004CAfSAM",
-    "ApexBlueprint@2.0.1-1": "04tgK000000HaIPQA0"
+    "ApexBlueprint@2.0.1-1": "04tgK000000HaIPQA0",
+    "ApexBlueprint@2.1.0-1": "04tgK000000HuDtQAK"
   }
 }
