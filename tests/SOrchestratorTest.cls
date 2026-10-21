@@ -998,4 +998,360 @@ public with sharing class SOrchestratorTest {
       Assert.isTrue(e.getMessage().contains(expectedMessage));
     }
   }
+
+  // ---------------------------------------------------------------------------------------------
+  // Real DML: values filled in on save, and insert limits
+  // ---------------------------------------------------------------------------------------------
+
+  @isTest
+  static void testCreate_WhenUseCopiesAFieldFilledInOnSave_ThenTheSavedValueIsCopied() {
+    // Arrange: Probability is filled in from StageName on save; it used to be copied as null (issue #11)
+    SOrchestrator orchestrator = SOrchestrator.start()
+      .add(
+        SBlueprint.of(Opportunity.class)
+          .set('Name', 'src')
+          .set('StageName', 'Prospecting')
+          .set('CloseDate', Date.today())
+          .alias('src')
+      )
+      .add(
+        SBlueprint.of(Opportunity.class)
+          .set('Name', 'dst')
+          .set('StageName', 'Prospecting')
+          .set('CloseDate', Date.today())
+          .use('src', 'Probability', 'Amount')
+          .alias('dst')
+      );
+
+    // Act
+    orchestrator.create();
+
+    // Assert
+    Opportunity src = [SELECT Probability FROM Opportunity WHERE Id = :orchestrator.getByAlias('src').Id];
+    Opportunity dst = [SELECT Amount FROM Opportunity WHERE Id = :orchestrator.getByAlias('dst').Id];
+    Assert.isNotNull(src.Probability);
+    Assert.areEqual(src.Probability, dst.Amount);
+    Assert.areEqual(src.Probability, orchestrator.getByAlias('src').get('Probability'), 'getByAlias returns the saved value');
+    Assert.areEqual('src', orchestrator.getByAlias('src').get('Name'), 'fields set by the blueprint are kept');
+    Assert.isNull(orchestrator.getByAlias('src').get('Description'), 'a field neither set nor read back is null, not an error');
+  }
+
+  @isTest
+  static void testCreate_WhenElevenTypesShareALayer_ThenAllAreInserted() {
+    // Arrange: one save operation refuses more than ten types (issue #12)
+    SOrchestrator orchestrator = SOrchestrator.start()
+      .add(SBlueprint.of(Account.class).set('Name', 'a').alias('t1'))
+      .add(SBlueprint.of(Contact.class).set('LastName', 'c').alias('t2'))
+      .add(SBlueprint.of(Lead.class).set('LastName', 'l').set('Company', 'x').alias('t3'))
+      .add(SBlueprint.of(Case.class).set('Subject', 's').alias('t4'))
+      .add(SBlueprint.of(Campaign.class).set('Name', 'c').alias('t5'))
+      .add(SBlueprint.of(Product2.class).set('Name', 'p').alias('t6'))
+      .add(SBlueprint.of(Task.class).set('Subject', 't').alias('t7'))
+      .add(SBlueprint.of(Pricebook2.class).set('Name', 'pb').alias('t8'))
+      .add(SBlueprint.of(Solution.class).set('SolutionName', 's').alias('t9'))
+      .add(SBlueprint.of(Topic.class).set('Name', 'apexblueprint-topic').alias('t10'))
+      .add(
+        SBlueprint.of(Opportunity.class)
+          .set('Name', 'o')
+          .set('StageName', 'Prospecting')
+          .set('CloseDate', Date.today())
+          .alias('t11')
+      );
+
+    // Act
+    orchestrator.create();
+
+    // Assert
+    for (Integer i = 1; i <= 11; i++) {
+      Assert.isNotNull(orchestrator.getByAlias('t' + i).Id, 't' + i + ' must be inserted');
+    }
+  }
+
+  @isTest
+  static void testCreate_WhenTwoTypesAreAddedInTurns_ThenTheInsertIsSplitAtTenChunks() {
+    // Arrange: two types added in turns made twelve chunks, over the limit of ten (issue #12)
+    SOrchestrator orchestrator = SOrchestrator.start();
+    for (Integer i = 0; i < 6; i++) {
+      orchestrator = orchestrator.add(SBlueprint.of(Account.class).set('Name', 'a' + i).alias('a' + i))
+        .add(SBlueprint.of(Contact.class).set('LastName', 'c' + i).alias('c' + i));
+    }
+
+    // Act
+    Integer dmlBefore = Limits.getDmlStatements();
+    orchestrator.create();
+    Integer dmlUsed = Limits.getDmlStatements() - dmlBefore;
+
+    // Assert
+    for (Integer i = 0; i < 6; i++) {
+      Assert.isNotNull(orchestrator.getByAlias('a' + i).Id);
+      Assert.isNotNull(orchestrator.getByAlias('c' + i).Id);
+    }
+    Assert.areEqual(2, dmlUsed, 'Twelve chunks are split into ten and two, keeping the order');
+  }
+
+  @isTest
+  static void testCreate_WhenChildBlueprintIsReused_ThenTheCallersBlueprintIsUnchanged() {
+    // Arrange: the analyzer and the realizer used to write into the caller's child blueprint (issue #7)
+    SBlueprint contact = SBlueprint.of(Contact.class).set('LastName', 'c{#}').alias('{P0}_c{#}').times(2);
+    SBlueprint account = SBlueprint.of(Account.class).set('Name', 'acc{#}').alias('acc{#}').times(2).withChildren(contact);
+    String childAliasBefore = contact.getAlias();
+    Integer childPlansBefore = contact.getParentBuildPlans().size();
+
+    // Act
+    SOrchestrator first = SOrchestrator.start().add(account);
+    first.create();
+    SOrchestrator second = SOrchestrator.start().add(account);
+    second.create();
+
+    // Assert
+    Assert.areEqual(childAliasBefore, contact.getAlias());
+    Assert.areEqual(childPlansBefore, contact.getParentBuildPlans().size());
+    Assert.areEqual(0, contact.getDependencies().size());
+    Assert.areEqual(second.getByAlias('acc2').Id, ((Contact) [SELECT AccountId FROM Contact WHERE Id = :second.getByAlias('acc2_c1').Id]).AccountId);
+  }
+
+  @isTest
+  static void testDeepCopy_WhenTheCopysDependencyChanges_ThenTheOriginalIsUntouched() {
+    // Arrange
+    SBlueprint original = SBlueprint.of(Contact.class).use('acc', 'Id', 'AccountId').alias('con');
+
+    // Act
+    SBlueprint copy = original.deepCopy();
+    copy.getDependencies()[0].alias = 'changed';
+    copy.getAliasDefinition().alias = 'changed';
+
+    // Assert
+    Assert.areEqual('acc', original.getDependencies()[0].alias);
+    Assert.areEqual('con', original.getAlias());
+  }
+
+  @isTest
+  static void testTimesAndTemplate_WhenNull_ThenRequiredError() {
+    try {
+      SBlueprint.of(Account.class).times(null);
+      Assert.fail('times(null) must be refused');
+    } catch (ApexBlueprintException e) {
+      Assert.isTrue(e.getMessage().contains('times'), e.getMessage());
+    }
+    try {
+      SBlueprint.of(Account.class).template(null);
+      Assert.fail('template(null) must be refused');
+    } catch (ApexBlueprintException e) {
+      Assert.isTrue(e.getMessage().contains('template'), e.getMessage());
+    }
+  }
+
+  @isTest
+  static void testMockDmlOperator_WhenTwoMocksInsert_ThenIdsDoNotCollide() {
+    // Arrange
+    Account first = new Account(Name = 'a');
+    Account second = new Account(Name = 'b');
+
+    // Act
+    new MockDmlOperator().doInsert(new List<SObject>{ first });
+    new MockDmlOperator().doInsert(new List<SObject>{ second });
+
+    // Assert
+    Assert.areNotEqual(first.Id, second.Id);
+  }
+
+  @isTest
+  static void testCreate_WhenALayerFitsInOneInsert_ThenOneDml() {
+    // Arrange: ten types in one layer, each added once
+    SOrchestrator orchestrator = SOrchestrator.start()
+      .add(SBlueprint.of(Account.class).set('Name', 'a').alias('t1'))
+      .add(SBlueprint.of(Contact.class).set('LastName', 'c').alias('t2'))
+      .add(SBlueprint.of(Lead.class).set('LastName', 'l').set('Company', 'x').alias('t3'))
+      .add(SBlueprint.of(Case.class).set('Subject', 's').alias('t4'))
+      .add(SBlueprint.of(Campaign.class).set('Name', 'c').alias('t5'))
+      .add(SBlueprint.of(Product2.class).set('Name', 'p').alias('t6'))
+      .add(SBlueprint.of(Task.class).set('Subject', 't').alias('t7'))
+      .add(SBlueprint.of(Pricebook2.class).set('Name', 'pb').alias('t8'))
+      .add(SBlueprint.of(Solution.class).set('SolutionName', 's').alias('t9'))
+      .add(SBlueprint.of(Topic.class).set('Name', 'apexblueprint-topic').alias('t10'));
+
+    // Act
+    Integer dmlBefore = Limits.getDmlStatements();
+    orchestrator.create();
+
+    // Assert
+    Assert.areEqual(1, Limits.getDmlStatements() - dmlBefore, 'A layer that used to succeed is still one insert');
+  }
+
+  @isTest
+  static void testCreate_WhenOneUseReadsAField_ThenOnlyItsSourceIsQueried() {
+    // Arrange: earlier records of five types have a Name; only one use() reads one of them
+    SOrchestrator orchestrator = SOrchestrator.start()
+      .add(SBlueprint.of(Account.class).set('Name', 'acc').alias('acc'))
+      .add(SBlueprint.of(Campaign.class).set('Name', 'cmp').alias('cmp'))
+      .add(SBlueprint.of(Product2.class).set('Name', 'prd').alias('prd'))
+      .add(SBlueprint.of(Pricebook2.class).set('Name', 'pb').alias('pb'))
+      .add(SBlueprint.of(Topic.class).set('Name', 'apexblueprint-topic').alias('topic'))
+      .add(SBlueprint.of(Contact.class).set('LastName', 'c').use('acc', 'Name', 'Description').alias('con'));
+
+    // Act
+    Integer queriesBefore = Limits.getQueries();
+    orchestrator.create();
+    Integer queriesUsed = Limits.getQueries() - queriesBefore;
+
+    // Assert
+    Assert.areEqual(1, queriesUsed, 'Only the Account that the use() reads is queried');
+    Assert.areEqual('acc', ((Contact) [SELECT Description FROM Contact WHERE Id = :orchestrator.getByAlias('con').Id]).Description);
+  }
+
+  @isTest
+  static void testCreate_WhenOnlyIdIsUsed_ThenNothingIsQueried() {
+    // Arrange: insert already writes the Id back, so a use() of Id needs no query
+    SOrchestrator orchestrator = SOrchestrator.start()
+      .add(SBlueprint.of(Account.class).set('Name', 'acc').alias('acc'))
+      .add(SBlueprint.of(Contact.class).set('LastName', 'c').use('acc', 'Id', 'AccountId').alias('con'));
+
+    // Act
+    Integer queriesBefore = Limits.getQueries();
+    orchestrator.create();
+
+    // Assert
+    Assert.areEqual(0, Limits.getQueries() - queriesBefore);
+  }
+
+  @isTest
+  static void testCreate_WhenChildCopiesAParentFieldFilledInOnSave_ThenEachChildGetsItsParentsValue() {
+    // Arrange: NumberOfLeads is filled in as 0 on save; the copy is recorded inside the per-parent recursion
+    SBlueprint parent = SBlueprint.of(Campaign.class)
+      .set('Name', 'cmp{#}')
+      .alias('cmp{#}')
+      .times(2)
+      .withChildren(
+        SBlueprint.of(Opportunity.class)
+          .set('Name', 'child{#}')
+          .set('StageName', 'Prospecting')
+          .set('CloseDate', Date.today())
+          .use('{P0}', 'NumberOfLeads', 'TotalOpportunityQuantity')
+          .use('{P0}', 'BudgetedCost', 'Amount')
+          .alias('{P0}_opp')
+      )
+      .set('BudgetedCost', '{#}');
+
+    // Act
+    SOrchestrator orchestrator = SOrchestrator.start().add(parent);
+    orchestrator.create();
+
+    // Assert: each child holds the saved value of its own parent, not the in-memory null
+    for (Integer i = 1; i <= 2; i++) {
+      String parentAlias = 'cmp' + i;
+      Opportunity child = [
+        SELECT CampaignId, TotalOpportunityQuantity, Amount
+        FROM Opportunity
+        WHERE Id = :orchestrator.getByAlias(parentAlias + '_opp').Id
+      ];
+      Assert.areEqual(orchestrator.getByAlias(parentAlias).Id, child.CampaignId);
+      Assert.areEqual(0, child.TotalOpportunityQuantity);
+      Assert.areEqual(i, child.Amount, 'Each child copies its own parent, not another one');
+    }
+  }
+
+  /**
+   * Records the order of the types handed to each insert, and inserts for real.
+   */
+  private class RecordingDmlOperator implements IDmlOperator {
+    public List<List<String>> typesPerInsert = new List<List<String>>();
+
+    public void doInsert(List<SObject> records) {
+      List<String> types = new List<String>();
+      for (SObject record : records) {
+        types.add(record.getSObjectType().getDescribe().getName());
+      }
+      this.typesPerInsert.add(types);
+      insert records;
+    }
+
+    public void doUpdate(List<SObject> records) {
+      update records;
+    }
+
+    public void doDelete(List<SObject> records) {
+      delete records;
+    }
+  }
+
+  @isTest
+  static void testCreate_WhenTypesAlternateWithinTheLimit_ThenTheOrderIsKept() {
+    // Arrange
+    RecordingDmlOperator recorder = new RecordingDmlOperator();
+    SOrchestrator orchestrator = SOrchestrator.start(recorder)
+      .add(SBlueprint.of(Account.class).set('Name', 'a1').alias('a1'))
+      .add(SBlueprint.of(Contact.class).set('LastName', 'c1').alias('c1'))
+      .add(SBlueprint.of(Account.class).set('Name', 'a2').alias('a2'));
+
+    // Act
+    orchestrator.create();
+
+    // Assert
+    Assert.areEqual(1, recorder.typesPerInsert.size());
+    Assert.areEqual(new List<String>{ 'Account', 'Contact', 'Account' }, recorder.typesPerInsert[0]);
+  }
+
+  @isTest
+  static void testCreate_WhenSixTypesHave201RecordsEach_ThenTheInsertIsSplitAtTenChunks() {
+    // Arrange: every 200 records of one type is a chunk, so this layer is twelve chunks
+    RecordingDmlOperator recorder = new RecordingDmlOperator();
+    SOrchestrator orchestrator = SOrchestrator.start(recorder)
+      .add(SBlueprint.of(Account.class).set('Name', 'a{#}').alias('a{#}').times(201))
+      .add(SBlueprint.of(Contact.class).set('LastName', 'c{#}').alias('c{#}').times(201))
+      .add(SBlueprint.of(Lead.class).set('LastName', 'l{#}').set('Company', 'x').alias('l{#}').times(201))
+      .add(SBlueprint.of(Case.class).set('Subject', 's{#}').alias('s{#}').times(201))
+      .add(SBlueprint.of(Campaign.class).set('Name', 'm{#}').alias('m{#}').times(201))
+      .add(SBlueprint.of(Product2.class).set('Name', 'p{#}').alias('p{#}').times(201));
+
+    // Act
+    orchestrator.create();
+
+    // Assert
+    Assert.areEqual(2, recorder.typesPerInsert.size());
+    Assert.areEqual(1206, recorder.typesPerInsert[0].size() + recorder.typesPerInsert[1].size());
+    Assert.isNotNull(orchestrator.getByAlias('p201').Id);
+  }
+
+  @isTest
+  static void testCreate_WhenALayerHasOneTypeOver2000Records_ThenOneInsert() {
+    // Arrange: a list of one type has no chunk limit, so it must not be split
+    RecordingDmlOperator recorder = new RecordingDmlOperator();
+    SOrchestrator orchestrator = SOrchestrator.start(recorder)
+      .add(SBlueprint.of(Account.class).set('Name', 'a{#}').alias('a{#}').times(2001));
+
+    // Act
+    orchestrator.create();
+
+    // Assert
+    Assert.areEqual(1, recorder.typesPerInsert.size());
+    Assert.areEqual(2001, recorder.typesPerInsert[0].size());
+  }
+
+  @isTest
+  static void testCreate_WhenUseCopiesContentDocumentId_ThenTheFileIsLinked() {
+    // Arrange: ContentDocumentId is filled in on save, and the source record carries a Base64 body
+    SOrchestrator orchestrator = SOrchestrator.start()
+      .add(
+        SBlueprint.of(ContentVersion.class)
+          .set('Title', 't')
+          .set('PathOnClient', 't.txt')
+          .set('VersionData', Blob.valueOf('body'))
+          .alias('cv')
+      )
+      .add(SBlueprint.of(Account.class).set('Name', 'a').alias('acc'))
+      .add(
+        SBlueprint.of(ContentDocumentLink.class)
+          .use('cv', 'ContentDocumentId', 'ContentDocumentId')
+          .use('acc', 'Id', 'LinkedEntityId')
+          .alias('cdl')
+      );
+
+    // Act
+    orchestrator.create();
+
+    // Assert
+    ContentVersion saved = [SELECT ContentDocumentId FROM ContentVersion WHERE Id = :orchestrator.getByAlias('cv').Id];
+    Assert.areEqual(saved.ContentDocumentId, orchestrator.getByAlias('cdl').get('ContentDocumentId'));
+    Assert.areEqual('body', ((Blob) orchestrator.getByAlias('cv').get('VersionData')).toString(), 'the body comes from memory');
+  }
 }

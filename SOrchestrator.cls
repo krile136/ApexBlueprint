@@ -110,6 +110,13 @@ public with sharing class SOrchestrator {
    * Retrieves a created SObject record by its alias.
    * This should be called after `create()` has been executed.
    *
+   * Every record has its Id and the fields the blueprint set; a field not set reads as null.
+   * A record that a later use() copied a non-Id field from also holds the saved values of the
+   * fields read back for it (the copied fields and the fields the blueprint set, except
+   * Base64 fields, which keep the in-memory value). Other
+   * values Salesforce fills in on save are not there as a rule (a value that SOQL returns
+   * without being asked may be); query the record when you need those.
+   *
    * @param alias The alias of the record to retrieve.
    * @return The SObject record, or null if the alias is not found.
    */
@@ -169,12 +176,14 @@ public with sharing class SOrchestrator {
      */
     public void realizeLayer(Map<String, SObject> aliasToSObject, IDmlOperator dmlOperator) {
       Map<String, SObject> layerAliasToSObject = new Map<String, SObject>();
+      List<SBlueprintRealizer.DeferredCopy> deferredCopies = new List<SBlueprintRealizer.DeferredCopy>();
       for (SBlueprint sBlueprint : this.sBlueprints) {
         SBlueprintRealizer realizer = new SBlueprintRealizer(
           sBlueprint,
           aliasToSObject,
           new Map<String, String>(),
-          0
+          0,
+          deferredCopies
         );
         Map<String, SObject> newAliasToSObject = realizer.realize();
 
@@ -190,7 +199,10 @@ public with sharing class SOrchestrator {
         }
       }
 
-      dmlOperator.doInsert(layerAliasToSObject.values());
+      if (!(dmlOperator instanceof MockDmlOperator)) {
+        applySavedValues(deferredCopies, aliasToSObject);
+      }
+      insertKeepingOrder(layerAliasToSObject.values(), dmlOperator);
 
       for (String alias : layerAliasToSObject.keySet()) {
         if (aliasToSObject.containsKey(alias)) {
@@ -202,6 +214,243 @@ public with sharing class SOrchestrator {
         }
         aliasToSObject.put(alias, layerAliasToSObject.get(alias));
       }
+    }
+  }
+
+  /**
+   * Redoes the use() copies of non-Id fields from the values saved in the database.
+   *
+   * The source records in aliasToSObject are the ones built in memory; insert only writes
+   * their Id back. A field Salesforce fills in on save (a default, an auto number, a formula,
+   * a value set by a trigger or flow) is still null there, and use() copied that null without
+   * any error (measured on API v67.0: Opportunity.Probability is 10 in the database and null
+   * in memory, issue #11).
+   *
+   * Only the records a use() actually reads are queried, with only the fields it reads plus
+   * the fields already set in memory: one query per source type, so a layer with no such
+   * use() costs nothing. The record getByAlias() returns for it then holds the saved values
+   * of the queried fields (which can differ from what the blueprint set, for example after
+   * rounding or a trigger) on top of the in-memory ones (see mergeSaved). Base64 fields are
+   * never queried, even when a use() reads one; the in-memory value is carried over, so file
+   * bodies are not read back into the heap.
+   *
+   * Changed behaviour: a use() between fields of different types used to copy the in-memory
+   * null without complaint; it now fails when the saved value cannot be put.
+   *
+   * The query runs without sharing: test data created under System.runAs and owned by
+   * another user must still be readable. A source record that still cannot be read fails
+   * loudly instead of leaving the in-memory null in place.
+   *
+   * Rejected alternatives: re-reading every earlier record of every type that has a field
+   * with the requested name (queries and getByAlias changed for records no use() reads), and
+   * refusing a use() whose in-memory value is null (a field filled in on save could then not
+   * be copied at all).
+   *
+   * @param deferredCopies The copies recorded by the realizers of this layer
+   * @param aliasToSObject The records of the earlier layers, by alias (updated in place)
+   */
+  private static void applySavedValues(
+    List<SBlueprintRealizer.DeferredCopy> deferredCopies,
+    Map<String, SObject> aliasToSObject
+  ) {
+    if (deferredCopies.isEmpty()) {
+      return;
+    }
+    Map<Schema.SObjectType, Set<String>> fieldsByType = new Map<Schema.SObjectType, Set<String>>();
+    Map<Schema.SObjectType, Set<String>> aliasesByType = new Map<Schema.SObjectType, Set<String>>();
+    for (SBlueprintRealizer.DeferredCopy deferredCopy : deferredCopies) {
+      SObject source = aliasToSObject.get(deferredCopy.sourceAlias);
+      Schema.SObjectType sourceType = source.getSObjectType();
+      if (!fieldsByType.containsKey(sourceType)) {
+        fieldsByType.put(sourceType, new Set<String>{ 'id' });
+        aliasesByType.put(sourceType, new Set<String>());
+      }
+      Schema.SObjectField fromField = sourceType.getDescribe().fields.getMap().get(deferredCopy.fromField.toLowerCase());
+      if (fromField != null && fromField.getDescribe().getType() != Schema.DisplayType.BASE64) {
+        fieldsByType.get(sourceType).add(deferredCopy.fromField.toLowerCase());
+      }
+      aliasesByType.get(sourceType).add(deferredCopy.sourceAlias);
+    }
+
+    for (Schema.SObjectType sourceType : fieldsByType.keySet()) {
+      Map<String, Schema.SObjectField> fieldMap = sourceType.getDescribe().fields.getMap();
+      Set<String> selectFields = fieldsByType.get(sourceType);
+      Set<Id> ids = new Set<Id>();
+      for (String alias : aliasesByType.get(sourceType)) {
+        SObject source = aliasToSObject.get(alias);
+        ids.add(source.Id);
+        for (String populated : source.getPopulatedFieldsAsMap().keySet()) {
+          Schema.SObjectField field = fieldMap.get(populated.toLowerCase());
+          if (field != null && field.getDescribe().getType() != Schema.DisplayType.BASE64) {
+            selectFields.add(populated.toLowerCase());
+          }
+        }
+      }
+      String soql =
+        'SELECT ' + String.join(new List<String>(selectFields), ', ') +
+        ' FROM ' + sourceType.getDescribe().getName() + ' WHERE Id IN :ids';
+      Map<Id, SObject> saved = new Map<Id, SObject>(new SavedRecordReader().read(soql, ids));
+
+      for (String alias : aliasesByType.get(sourceType)) {
+        SObject source = aliasToSObject.get(alias);
+        SObject savedRecord = saved.get(source.Id);
+        if (savedRecord == null) {
+          String reason = 'The record of alias \'' + alias + '\' could not be read back to copy its saved values.';
+          ApexBlueprintException.invalidOperation(CLASS_NAME, 'applySavedValues()', reason)
+            .action(
+              'Check that the record was not deleted by a trigger or flow before the next layer. ' +
+              'With a custom IDmlOperator that does not write to the database, use MockDmlOperator, ' +
+              'or copy only Id with use().'
+            )
+            .fire();
+        }
+        aliasToSObject.put(alias, mergeSaved(source, savedRecord));
+      }
+    }
+
+    for (SBlueprintRealizer.DeferredCopy deferredCopy : deferredCopies) {
+      try {
+        Object value = aliasToSObject.get(deferredCopy.sourceAlias).get(deferredCopy.fromField);
+        deferredCopy.target.put(deferredCopy.toField, value);
+      } catch (Exception e) {
+        String reason = 'The saved value of \'' + deferredCopy.fromField + '\' on alias \'' + deferredCopy.sourceAlias +
+          '\' could not be copied to \'' + deferredCopy.toField + '\': ' + e.getMessage();
+        ApexBlueprintException.invalidOperation(CLASS_NAME, 'applySavedValues()', reason)
+          .action('Check that use(\'' + deferredCopy.declaredAlias + '\', ...) copies between fields of compatible types.')
+          .fire();
+      }
+    }
+  }
+
+  /**
+   * Builds the record getByAlias() returns: the fields set in memory, overlaid with the
+   * fields read back from the database.
+   *
+   * The queried record itself is not returned: reading a field it did not select throws
+   * (`SObject row was retrieved via SOQL without querying the requested field`), while the
+   * in-memory record returned null for any field not set. Going through JSON keeps that:
+   * a field neither set nor queried reads as null (measured on API v67.0), and fields that
+   * cannot be put in Apex, such as formulas, still carry their saved value.
+   *
+   * Base64 values stay out of the JSON and are put back on the result afterwards: JSON
+   * cannot turn them back into a field (`Cannot deserialize instance of base64`, measured on
+   * ContentVersion.VersionData), and passing a file body through a string would hold it in
+   * the heap several times over. Putting the original Blob back passes a reference.
+   *
+   * @param inMemory The record built by the realizer and inserted
+   * @param saved The same record as read back from the database
+   * @return A record with both sets of values
+   */
+  private static SObject mergeSaved(SObject inMemory, SObject saved) {
+    Map<String, Object> fields = new Map<String, Object>(inMemory.getPopulatedFieldsAsMap());
+    fields.putAll(saved.getPopulatedFieldsAsMap());
+    Map<String, Schema.SObjectField> fieldMap = inMemory.getSObjectType().getDescribe().fields.getMap();
+    Map<String, Object> base64Values = new Map<String, Object>();
+    for (String name : new List<String>(fields.keySet())) {
+      Schema.SObjectField field = fieldMap.get(name.toLowerCase());
+      if (field != null && field.getDescribe().getType() == Schema.DisplayType.BASE64) {
+        base64Values.put(name, fields.remove(name));
+      }
+    }
+    String typeName = inMemory.getSObjectType().getDescribe().getName();
+    System.Type apexType = Type.forName(typeName);
+    if (apexType == null) {
+      String reason = 'The SObject type \'' + typeName + '\' could not be resolved to rebuild the saved record.';
+      ApexBlueprintException.invalidOperation(CLASS_NAME, 'mergeSaved()', reason).fire();
+    }
+    fields.put('attributes', new Map<String, Object>{ 'type' => typeName });
+    SObject merged = (SObject) JSON.deserialize(JSON.serialize(fields), apexType);
+    for (String name : base64Values.keySet()) {
+      merged.put(name, base64Values.get(name));
+    }
+    return merged;
+  }
+
+  /**
+   * Reads saved records regardless of sharing, for applySavedValues().
+   */
+  private without sharing class SavedRecordReader {
+    /**
+     * @param soql The query, binding the Ids as :ids
+     * @param ids The record Ids
+     * @return The records found
+     */
+    public List<SObject> read(String soql, Set<Id> ids) {
+      return Database.queryWithBinds(soql, new Map<String, Object>{ 'ids' => ids }, AccessLevel.SYSTEM_MODE);
+    }
+  }
+
+  /**
+   * The most SObject types, and the most chunks, Salesforce accepts in one save operation.
+   */
+  private static final Integer MAX_TYPES_PER_INSERT = 10;
+
+  /**
+   * The most records of one type that Salesforce counts as one chunk, in a list that mixes types.
+   */
+  private static final Integer MAX_RECORDS_PER_CHUNK = 200;
+
+  /**
+   * Inserts the records in the order they were added, splitting the insert only where one
+   * more record would pass ten types or ten chunks.
+   *
+   * One save operation refuses more than ten types, and more than ten chunks. In a list that
+   * mixes types, a chunk ends wherever the type changes, and also after every 200 records of
+   * one type: six types of 201 records each made twelve chunks, and 2001 Accounts with one
+   * Contact were refused. A list of one type has no chunk limit (2001 Accounts went in one
+   * insert), so a layer of one type is never split. Inserting the layer in one go failed
+   * with eleven independent types, with only two types added in turns, and with that
+   * 201-record layer (all measured on API v67.0, issue #12).
+   * Rejected alternative: grouping the records by type. It needs fewer inserts, but it
+   * reorders records across types, which changes what triggers see for input that already
+   * worked. With this split, any layer that used to succeed is still one insert in the same
+   * order.
+   *
+   * @param records The records of one layer, in the order they were added
+   * @param dmlOperator The operator that performs the insert
+   */
+  private static void insertKeepingOrder(List<SObject> records, IDmlOperator dmlOperator) {
+    Set<Schema.SObjectType> layerTypes = new Set<Schema.SObjectType>();
+    for (SObject record : records) {
+      layerTypes.add(record.getSObjectType());
+    }
+    if (layerTypes.size() <= 1) {
+      // A list of one type has no chunk limit: 2001 Accounts go in one insert (measured).
+      if (!records.isEmpty()) {
+        dmlOperator.doInsert(records);
+      }
+      return;
+    }
+    List<SObject> batch = new List<SObject>();
+    Set<Schema.SObjectType> typesInBatch = new Set<Schema.SObjectType>();
+    Integer chunksInBatch = 0;
+    Integer recordsInChunk = 0;
+    Schema.SObjectType previousType = null;
+    for (SObject record : records) {
+      Schema.SObjectType recordType = record.getSObjectType();
+      Boolean startsChunk = recordType != previousType || recordsInChunk == MAX_RECORDS_PER_CHUNK;
+      Boolean addsType = !typesInBatch.contains(recordType);
+      if (
+        !batch.isEmpty() &&
+        ((startsChunk && chunksInBatch == MAX_TYPES_PER_INSERT) || (addsType && typesInBatch.size() == MAX_TYPES_PER_INSERT))
+      ) {
+        dmlOperator.doInsert(batch);
+        batch = new List<SObject>();
+        typesInBatch = new Set<Schema.SObjectType>();
+        chunksInBatch = 0;
+        startsChunk = true;
+      }
+      if (startsChunk) {
+        chunksInBatch++;
+        recordsInChunk = 0;
+      }
+      recordsInChunk++;
+      typesInBatch.add(recordType);
+      batch.add(record);
+      previousType = recordType;
+    }
+    if (!batch.isEmpty()) {
+      dmlOperator.doInsert(batch);
     }
   }
 
