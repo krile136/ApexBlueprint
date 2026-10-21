@@ -137,6 +137,9 @@ public with sharing class SBlueprint {
    * @return A new SBlueprint instance with the template applied.
    */
   public SBlueprint template(Map<String, Object> template) {
+    if (template == null) {
+      ApexBlueprintException.required(CLASS_NAME, 'template(Map<String, Object> template)', 'template', template).fire();
+    }
     SBlueprint newSBlueprint = this.deepCopy();
     for (String key : template.keySet()) {
       ValueDefinition valueDefinition = new ValueDefinition(template.get(key), 1, 1);
@@ -292,6 +295,9 @@ public with sharing class SBlueprint {
    */
   public SBlueprint times(Integer times) {
     String method = 'times(Integer times)';
+    if (times == null) {
+      ApexBlueprintException.required(CLASS_NAME, method, 'times', times).fire();
+    }
     if (times <= 0) {
       String reason = 'times must be greater than 0.';
       String action = 'Pass a positive record count.';
@@ -394,7 +400,7 @@ public with sharing class SBlueprint {
    * @return A new ParentBuildPlan instance.
    */
   private ParentBuildPlan generateParentBuildPlan() {
-    return new ParentBuildPlan(this.aliasDefinition, this.insertNumber);
+    return new ParentBuildPlan(this.aliasDefinition == null ? null : this.aliasDefinition.copy(), this.insertNumber);
   }
 
   /**
@@ -513,20 +519,32 @@ public with sharing class SBlueprint {
   /**
    * Creates a deep copy of the SBlueprint instance.
    *
+   * The alias definition and each dependency are copied as well, not shared. The realizer
+   * rewrites them while resolving parent placeholders, and sharing them let that rewrite
+   * leak into every other copy (issue #7).
+   *
    * @return A new SBlueprint instance with the same configuration.
    */
   public SBlueprint deepCopy() {
     SBlueprint copy = SBlueprint.of(this.recordType);
-    copy.aliasDefinition = this.aliasDefinition;
+    copy.aliasDefinition = this.aliasDefinition == null ? null : this.aliasDefinition.copy();
     copy.parentIdField = this.parentIdField;
     copy.insertNumber = this.insertNumber;
     copy.fieldValues = this.fieldValues == null ? new Map<String, ValueDefinition>() : this.fieldValues.clone();
-    copy.dependencies = this.dependencies == null ? new List<Dependency>() : this.dependencies.clone();
+    copy.dependencies = new List<Dependency>();
+    if (this.dependencies != null) {
+      for (Dependency dependency : this.dependencies) {
+        copy.dependencies.add(dependency.copy());
+      }
+    }
     copy.children = this.children == null ? new List<SBlueprint>() : this.children.clone();
     copy.shares = this.shares == null ? new List<ShareDefinition>() : this.shares.clone();
-    copy.parentBuildPlans = this.parentBuildPlans == null
-      ? new List<ParentBuildPlan>()
-      : this.parentBuildPlans.clone();
+    copy.parentBuildPlans = new List<ParentBuildPlan>();
+    if (this.parentBuildPlans != null) {
+      for (ParentBuildPlan plan : this.parentBuildPlans) {
+        copy.parentBuildPlans.add(plan.copy());
+      }
+    }
     return copy;
   }
 
@@ -717,6 +735,13 @@ public with sharing class SBlueprint {
     public void overrideAlias(String alias) {
       this.alias = alias;
     }
+
+    /**
+     * @return An independent copy of this definition.
+     */
+    public AliasDefinition copy() {
+      return new AliasDefinition(this.alias, this.startAt, this.interval);
+    }
   }
 
   /**
@@ -749,6 +774,16 @@ public with sharing class SBlueprint {
       this.interval = interval;
       this.orderOnly = true;
     }
+
+    /**
+     * @return An independent copy of this dependency.
+     */
+    public Dependency copy() {
+      Dependency copied = this.orderOnly
+        ? new Dependency(this.alias, this.startAt, this.interval)
+        : new Dependency(this.alias, this.fromField, this.toField, this.startAt, this.interval);
+      return copied;
+    }
   }
 
   /**
@@ -776,6 +811,13 @@ public with sharing class SBlueprint {
     public ParentBuildPlan(AliasDefinition parentAlias, Integer insertNumber) {
       this.parentAlias = parentAlias;
       this.insertNumber = insertNumber;
+    }
+
+    /**
+     * @return An independent copy of this plan, with its own alias definition.
+     */
+    public ParentBuildPlan copy() {
+      return new ParentBuildPlan(this.parentAlias == null ? null : this.parentAlias.copy(), this.insertNumber);
     }
   }
 }

@@ -31,6 +31,7 @@ public with sharing class SBlueprintRealizer {
   private Map<String, SObject> aliasToSObject;
   private Map<String, String> parentPositionToAlias;
   private Integer parentPosition;
+  private List<DeferredCopy> deferredCopies;
 
   // =================================================================================
   // Constructor
@@ -54,6 +55,34 @@ public with sharing class SBlueprintRealizer {
     this.aliasToSObject = aliasToSObject;
     this.parentPositionToAlias = parentPositionToAlias;
     this.parentPosition = parentPosition;
+    this.deferredCopies = new List<DeferredCopy>();
+  }
+
+  /**
+   * Constructor that collects the use() copies of non-Id fields into a shared list.
+   *
+   * @param sBluePrint The blueprint to realize
+   * @param aliasToSObject The records of the earlier layers, by alias
+   * @param parentPositionToAlias Parent placeholders resolved so far
+   * @param parentPosition The current parent depth
+   * @param deferredCopies The list that receives the copies to redo from the saved values
+   */
+  public SBlueprintRealizer(
+    SBlueprint sBluePrint,
+    Map<String, SObject> aliasToSObject,
+    Map<String, String> parentPositionToAlias,
+    Integer parentPosition,
+    List<DeferredCopy> deferredCopies
+  ) {
+    this(sBluePrint, aliasToSObject, parentPositionToAlias, parentPosition);
+    this.deferredCopies = deferredCopies;
+  }
+
+  /**
+   * @return The use() copies of non-Id fields made so far, to redo from the saved values.
+   */
+  public List<DeferredCopy> getDeferredCopies() {
+    return this.deferredCopies;
   }
 
   // =================================================================================
@@ -115,7 +144,8 @@ public with sharing class SBlueprintRealizer {
         copiedSBlueprint,
         this.aliasToSObject,
         newParentPositionToAlias,
-        parentPosition + 1
+        parentPosition + 1,
+        this.deferredCopies
       );
       Map<String, SObject> childAliasToSObject = childRealizer.realize();
 
@@ -203,6 +233,17 @@ public with sharing class SBlueprintRealizer {
           sobj.put(dependency.toField, value);
         } catch (Exception e) {
           this.fireFieldError('use(\'' + dependency.alias + '\', ...) toField', sobj, dependency.toField, value, e);
+        }
+        // The value above comes from the record built in memory. Insert only writes the Id
+        // back, so a field Salesforce fills in on save is still null there (issue #11). The
+        // copy is recorded so the orchestrator can redo it from the saved value. The
+        // in-memory copy stays: it already checked that both fields exist (not that their
+        // types match, when the in-memory value is null), and it is the value used when
+        // nothing is in the database (MockDmlOperator).
+        if (!dependency.fromField.equalsIgnoreCase('Id')) {
+          this.deferredCopies.add(
+            new DeferredCopy(sobj, dependency.toField, resolvedDependencyAlias, dependency.fromField, dependency.alias)
+          );
         }
       }
 
@@ -347,6 +388,17 @@ public with sharing class SBlueprintRealizer {
       currentAlias = currentAlias.replace(parentBuildPlan.parentAlias.alias, '{' + nextParentPosition + '}');
       blueprint.getAliasDefinition().alias = currentAlias;
     }
+    // The plans of the ancestors further down still spell this parent's alias inside theirs
+    // (a grandchild's plan for its own parent holds that child's alias). Rewrite them too, so
+    // the next level can match them. This used to happen by accident: the plan shared its
+    // alias definition with the blueprint that the realizer had already rewritten (issue #7).
+    List<SBlueprint.ParentBuildPlan> plans = blueprint.getParentBuildPlans();
+    for (Integer i = 1; i < plans.size(); i++) {
+      SBlueprint.AliasDefinition laterAlias = plans[i].parentAlias;
+      if (laterAlias != null && laterAlias.alias.contains(parentBuildPlan.parentAlias.alias)) {
+        laterAlias.alias = laterAlias.alias.replace(parentBuildPlan.parentAlias.alias, '{' + nextParentPosition + '}');
+      }
+    }
   }
 
   /**
@@ -405,5 +457,31 @@ public with sharing class SBlueprintRealizer {
       current = (current - remainder) / BASE;
     }
     return result;
+  }
+
+  /**
+   * A use() copy of a non-Id field, to redo from the value saved in the database.
+   */
+  public class DeferredCopy {
+    public SObject target;
+    public String toField;
+    public String sourceAlias;
+    public String fromField;
+    public String declaredAlias;
+
+    /**
+     * @param target The record being built
+     * @param toField The field of the record being built
+     * @param sourceAlias The resolved alias of the record the value comes from
+     * @param fromField The field of the source record
+     * @param declaredAlias The alias as written in use(), for messages
+     */
+    public DeferredCopy(SObject target, String toField, String sourceAlias, String fromField, String declaredAlias) {
+      this.target = target;
+      this.toField = toField;
+      this.sourceAlias = sourceAlias;
+      this.fromField = fromField;
+      this.declaredAlias = declaredAlias;
+    }
   }
 }

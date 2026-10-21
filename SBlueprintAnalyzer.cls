@@ -84,9 +84,12 @@ public with sharing class SBlueprintAnalyzer {
       }
 
       // Recursively categorize children.
+      // The plans go on a copy: the child is the caller's blueprint, and writing to it
+      // changed what that blueprint does the next time it is used (issue #7).
       for (SBlueprint child : sBluePrint.getChildren()) {
-        child.setParentBuildPlans(sBluePrint);
-        this.categorizeChildBluePrints(context, sBluePrint, child);
+        SBlueprint childCopy = child.deepCopy();
+        childCopy.setParentBuildPlans(sBluePrint);
+        this.categorizeChildBluePrints(context, sBluePrint, childCopy);
       }
 
       // Add the root blueprint (without its children, which are processed separately) to the context.
@@ -136,8 +139,9 @@ public with sharing class SBlueprintAnalyzer {
 
     // Continue the recursion for grandchildren.
     for (SBlueprint grandChild : childBluePrint.getChildren()) {
-      grandChild.setParentBuildPlans(childBluePrint);
-      this.categorizeChildBluePrints(context, childBluePrint, grandChild);
+      SBlueprint grandChildCopy = grandChild.deepCopy();
+      grandChildCopy.setParentBuildPlans(childBluePrint);
+      this.categorizeChildBluePrints(context, childBluePrint, grandChildCopy);
     }
 
     // Add the processed child blueprint (without its own children) to the context.

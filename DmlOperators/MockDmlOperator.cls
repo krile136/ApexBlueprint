@@ -2,11 +2,8 @@
  * @directory ApexBlueprint/DmlOperators
  */
 public with sharing class MockDmlOperator implements IDmlOperator {
-  private Integer insertCount;
-
-  public MockDmlOperator() {
-    this.insertCount = 0;
-  }
+  // Static so that two mocks in one test never hand out the same Id (issue #13).
+  private static Integer insertCount = 0;
 
   public void doInsert(List<SObject> records){
     System.debug('Mock inserting ' + records.size() + ' records.');
@@ -29,8 +26,8 @@ public with sharing class MockDmlOperator implements IDmlOperator {
    */
   private String genereteId(SObject record) {
     String prefix = record.getSObjectType().getDescribe().getKeyPrefix();
-    String generatedId = prefix + String.valueOf(this.insertCount).leftPad(12, '0');
-    this.insertCount++;
+    String generatedId = prefix + String.valueOf(insertCount).leftPad(12, '0');
+    insertCount++;
     return generatedId;
   }
 }
