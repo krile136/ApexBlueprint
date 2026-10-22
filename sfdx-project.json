@@ -1,8 +1,8 @@
 {
   "packageDirectories": [
     {
-      "versionName": "v2.1.0",
-      "versionNumber": "2.1.0.NEXT",
+      "versionName": "v2.2.0",
+      "versionNumber": "2.2.0.NEXT",
       "path": ".",
       "default": true,
       "package": "ApexBlueprint",
@@ -16,6 +16,7 @@
   "packageAliases": {
     "ApexBlueprint": "0HogK0000004CAfSAM",
     "ApexBlueprint@2.0.1-1": "04tgK000000HaIPQA0",
-    "ApexBlueprint@2.1.0-1": "04tgK000000HuDtQAK"
+    "ApexBlueprint@2.1.0-1": "04tgK000000HuDtQAK",
+    "ApexBlueprint@2.2.0-1": "04tgK000000V4KHQA0"
   }
 }
