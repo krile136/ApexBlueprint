@@ -122,6 +122,11 @@ public with sharing class SBlueprint {
    */
   public SBlueprint set(String fieldName, Object value, Integer startAt, Integer interval) {
     String method = 'set(String fieldName, Object value, Integer startAt, Integer interval)';
+    // Refused here: a null name used to reach create(), where put(null) failed and the
+    // field diagnosis then threw a NullPointerException instead of ApexBlueprintException.
+    if (String.isBlank(fieldName)) {
+      ApexBlueprintException.required(CLASS_NAME, method, 'fieldName', fieldName).fire();
+    }
     this.guardSequence(method, startAt, interval);
     SBlueprint newSBlueprint = this.deepCopy();
     ValueDefinition valueDefinition = new ValueDefinition(value, startAt, interval);
@@ -139,6 +144,11 @@ public with sharing class SBlueprint {
   public SBlueprint template(Map<String, Object> template) {
     if (template == null) {
       ApexBlueprintException.required(CLASS_NAME, 'template(Map<String, Object> template)', 'template', template).fire();
+    }
+    for (String key : template.keySet()) {
+      if (String.isBlank(key)) {
+        ApexBlueprintException.required(CLASS_NAME, 'template(Map<String, Object> template)', 'template key', key).fire();
+      }
     }
     SBlueprint newSBlueprint = this.deepCopy();
     for (String key : template.keySet()) {

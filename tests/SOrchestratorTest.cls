@@ -1142,6 +1142,31 @@ public with sharing class SOrchestratorTest {
   }
 
   @isTest
+  static void testSetAndTemplate_WhenFieldNameNullOrBlank_ThenRequiredError() {
+    for (String fieldName : new List<String>{ null, '', ' ' }) {
+      try {
+        SBlueprint.of(Account.class).set(fieldName, 'x');
+        Assert.fail('set(' + fieldName + ', ...) must be refused');
+      } catch (ApexBlueprintException e) {
+        Assert.isTrue(e.getMessage().contains('fieldName'), e.getMessage());
+      }
+      try {
+        SBlueprint.of(Account.class).template(new Map<String, Object>{ 'Name' => 'a', fieldName => 'x' });
+        Assert.fail('a template key of ' + fieldName + ' must be refused');
+      } catch (ApexBlueprintException e) {
+        Assert.isTrue(e.getMessage().contains('template key'), e.getMessage());
+      }
+    }
+    // The other overloads route through the same guard
+    try {
+      SBlueprint.of(Account.class).set(null, 'Acc-{#}', 10);
+      Assert.fail('set(null, value, startAt) must be refused');
+    } catch (ApexBlueprintException e) {
+      Assert.isTrue(e.getMessage().contains('fieldName'), e.getMessage());
+    }
+  }
+
+  @isTest
   static void testMockDmlOperator_WhenTwoMocksInsert_ThenIdsDoNotCollide() {
     // Arrange
     Account first = new Account(Name = 'a');

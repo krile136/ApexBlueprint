@@ -98,7 +98,7 @@ When the org adds a required field, only that object's method changes. Keep the 
 | `sharedWith(user, accessLevel)` | adds a manual share row (`'Read'` or `'Edit'`) for the record. See [references/personas-and-sharing.md](references/personas-and-sharing.md) |
 
 - Field names are strings and are not checked when you call `set` or `template`. At `create()`, a field the record refuses (wrong name, formula, auto number, other read-only field, value of the wrong type) throws `ApexBlueprintException` "Failed to apply field ..." with the alias, the source (`set() / template()` or `use(...)`) and the reason.
-- A `null` field name in `set(...)` or a `null` key in the `template(...)` map has no guard: `create()` fails with a platform exception, not `ApexBlueprintException`.
+- A `null` or blank field name in `set(...)` or a `null` or blank key in the `template(...)` map throws `ApexBlueprintException` at the call.
 - Checked when the method is called: a null or non-SObject type in `of`, a null `alias` (`alias`, `use`, `after`), a null `fromField` / `toField`, a null map, child or blueprint (`add`), a null `times` or `times(0)`, a `startAt` or `interval` that is null or 0 or less, a user that is null or has no Id (`owner`, `sharedWith`), and an access level other than `'Read'` / `'Edit'`. Everything else is checked at `create()`. A null or blank `parentIdField` falls back to inference.
 
 ## Placeholders

@@ -1,8 +1,8 @@
 {
   "packageDirectories": [
     {
-      "versionName": "v2.2.1",
-      "versionNumber": "2.2.1.NEXT",
+      "versionName": "v2.2.2",
+      "versionNumber": "2.2.2.NEXT",
       "path": ".",
       "default": true,
       "package": "ApexBlueprint",
