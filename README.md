@@ -35,6 +35,35 @@ git submodule update --init --recursive
 
 `sf project deploy start -d force-app/main/default/classes/ApexBlueprint` deploys it like any source folder. A Makefile is also included for direct installs (`make install`).
 
+## AI agents
+
+This repository ships an agent skill and a rule for [Claude Code](https://claude.com/claude-code) under `.claude/`:
+
+| Path | Purpose |
+|---|---|
+| `.claude/rules/apex-blueprint.md` | Short rules applied to `*.cls` and `*.trigger` files: declare test data with `SBlueprint` + `SOrchestrator`, nest children with `withChildren`, keep shared values in `template()`, create `runAs` users with `SPersona` |
+| `.claude/skills/apex-blueprint/` | `SBlueprint`, `SOrchestrator` and `SPersona`: declaring records, placeholders, insert order, bulk data, users and sharing, errors |
+
+The skill describes the version of the tag it comes from. After you upgrade ApexBlueprint, update the skill from the matching tag too.
+
+### Git submodule or clone
+
+The files are already in your project inside the ApexBlueprint folder. Claude Code picks them up once it reads a file in that folder. Nothing to copy.
+
+### Unlocked package
+
+The package installs only Apex classes. Copy the skill and the rule from the git tag that matches your installed version (replace `v2.2.1` with it):
+
+```bash
+rm -rf /tmp/apex-blueprint
+git clone --depth 1 --branch v2.2.1 https://github.com/krile136/ApexBlueprint.git /tmp/apex-blueprint
+mkdir -p .claude/skills .claude/rules
+cp -r /tmp/apex-blueprint/.claude/skills/* .claude/skills/
+cp /tmp/apex-blueprint/.claude/rules/apex-blueprint.md .claude/rules/
+```
+
+Run it from your project root. It overwrites earlier copies of this skill and leaves your other skills alone.
+
 ## License
 
 Apache License 2.0 — see [LICENSE](LICENSE).
