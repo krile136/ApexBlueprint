@@ -14,15 +14,15 @@ ApexBlueprint is part of [**Apex Stem**](https://krileworks.com/apex-stem), a se
 ### A) Unlocked Package (recommended)
 
 ```bash
-sf package install -p 04tgK000000b1LJQAY -o <your-org> -w 10
+sf package install -p 04tgK000000b1gHQAQ -o <your-org> -w 10
 ```
 
 Or install from the browser:
 
-- Production / Developer Edition: `https://login.salesforce.com/packaging/installPackage.apexp?p0=04tgK000000b1LJQAY`
-- Sandbox: `https://test.salesforce.com/packaging/installPackage.apexp?p0=04tgK000000b1LJQAY`
+- Production / Developer Edition: `https://login.salesforce.com/packaging/installPackage.apexp?p0=04tgK000000b1gHQAQ`
+- Sandbox: `https://test.salesforce.com/packaging/installPackage.apexp?p0=04tgK000000b1gHQAQ`
 
-Current version: **v2.2.1** (`04tgK000000b1LJQAY`). Install IDs for every release are listed on the [Releases](https://github.com/krile136/ApexBlueprint/releases) page.
+Current version: **v2.2.2** (`04tgK000000b1gHQAQ`). Install IDs for every release are listed on the [Releases](https://github.com/krile136/ApexBlueprint/releases) page.
 
 Why the package: tests inside an installed unlocked package are **excluded from `RunLocalTests`**, and its code is **excluded from your org's coverage calculation** — your deploys stay fast and unaffected by this framework's test suite.
 
@@ -52,11 +52,11 @@ The files are already in your project inside the ApexBlueprint folder. Claude Co
 
 ### Unlocked package
 
-The package installs only Apex classes. Copy the skill and the rule from the git tag that matches your installed version (replace `v2.2.1` with it):
+The package installs only Apex classes. Copy the skill and the rule from the git tag that matches your installed version (replace `v2.2.2` with it):
 
 ```bash
 rm -rf /tmp/apex-blueprint
-git clone --depth 1 --branch v2.2.1 https://github.com/krile136/ApexBlueprint.git /tmp/apex-blueprint
+git clone --depth 1 --branch v2.2.2 https://github.com/krile136/ApexBlueprint.git /tmp/apex-blueprint
 mkdir -p .claude/skills .claude/rules
 cp -r /tmp/apex-blueprint/.claude/skills/* .claude/skills/
 cp /tmp/apex-blueprint/.claude/rules/apex-blueprint.md .claude/rules/
